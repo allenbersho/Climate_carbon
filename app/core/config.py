@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # Authentication & Security
-    SECRET_KEY: str = "default-dev-secret-key"
+    SECRET_KEY: str = "dev-secret-key-carbontrack-local-super-secure-32chars"
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # Database
