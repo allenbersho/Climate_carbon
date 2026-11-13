@@ -38,6 +38,8 @@ def test_health_check_database_failure(client: TestClient) -> None:
     try:
         response = client.get("/health")
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-        assert "connectivity check failed" in response.json()["detail"]
+        data = response.json()
+        assert "connectivity check failed" in data["error"]["message"]
+        assert data["error"]["code"] == "SERVICE_UNAVAILABLE"
     finally:
         app.dependency_overrides.clear()

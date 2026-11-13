@@ -26,12 +26,18 @@ TestingSessionLocal = sessionmaker(
 )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_database() -> Generator[None, None, None]:
-    """Create all tables before test session and drop them afterwards."""
+@pytest.fixture(autouse=True)
+def clean_database() -> Generator[None, None, None]:
+    """Ensure every individual test runs against a clean, isolated database."""
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_file() -> Generator[None, None, None]:
+    """Remove test.db from disk after all tests finish."""
+    yield
     test_engine.dispose()
     if os.path.exists("./test.db"):
         try:

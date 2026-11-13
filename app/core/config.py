@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # First Admin Bootstrap Seed Credentials
+    FIRST_ADMIN_EMAIL: str = "admin@carbontrack.org"
+    FIRST_ADMIN_PASSWORD: str = "AdminPassword123!"
+
     # Database
     DATABASE_URL: str = "sqlite:///./carbontrack.db"
 

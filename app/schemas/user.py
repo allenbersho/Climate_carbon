@@ -34,3 +34,26 @@ class UserRead(UserBase):
     id: int
     is_active: bool
     created_at: datetime
+
+
+class LoginRequest(BaseModel):
+    """Payload for user login requests."""
+
+    email: EmailStr
+    password: str
+
+
+class Token(BaseModel):
+    """Schema for JWT authentication responses."""
+
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TokenPayload(BaseModel):
+    """Decoded JWT payload data."""
+
+    sub: str
+    role: str
+    exp: int
+    iat: int
