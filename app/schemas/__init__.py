@@ -7,6 +7,11 @@ from app.schemas.activity import (
     ActivityRead,
     ActivityUpdate,
 )
+from app.schemas.carbon import (
+    CarbonEstimateListResponse,
+    CarbonEstimateRead,
+    EstimateCreateRequest,
+)
 from app.schemas.enrollment import (
     EnrollmentBase,
     EnrollmentCreate,
@@ -76,12 +81,15 @@ __all__ = [
     "ActivityListResponse",
     "ActivityRead",
     "ActivityUpdate",
+    "CarbonEstimateListResponse",
+    "CarbonEstimateRead",
     "EnrollmentBase",
     "EnrollmentCreate",
     "EnrollmentListResponse",
     "EnrollmentMonitoringTimeline",
     "EnrollmentRead",
     "EnrollmentUpdate",
+    "EstimateCreateRequest",
     "FarmerBase",
     "FarmerCreate",
     "FarmerListResponse",

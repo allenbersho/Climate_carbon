@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     activities,
     auth,
+    carbon,
     enrollments,
     farmers,
     methodologies,
@@ -24,3 +25,4 @@ api_router.include_router(activities.router)
 api_router.include_router(observations.router)
 api_router.include_router(monitoring.router)
 api_router.include_router(methodologies.router)
+api_router.include_router(carbon.router)
