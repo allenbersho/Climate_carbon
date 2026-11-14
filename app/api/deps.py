@@ -92,7 +92,7 @@ CurrentUserDep = Annotated[User, Depends(get_current_user)]
 OptionalUserDep = Annotated[User | None, Depends(get_current_user_optional)]
 
 
-def require_role(*allowed_roles: UserRole):
+def require_roles(*allowed_roles: UserRole):
     """Factory dependency verifying the authenticated user holds an authorized role."""
 
     def role_checker(current_user: CurrentUserDep) -> User:
@@ -106,5 +106,8 @@ def require_role(*allowed_roles: UserRole):
     return role_checker
 
 
+# Alias for singular/plural flexibility
+require_role = require_roles
+
 # Convenient dependency for admin-only endpoints
-AdminUserDep = Annotated[User, Depends(require_role(UserRole.ADMIN))]
+AdminUserDep = Annotated[User, Depends(require_roles(UserRole.ADMIN))]

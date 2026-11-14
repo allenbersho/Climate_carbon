@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import CurrentUserDep, OptionalUserDep, SessionDep
+from app.api.deps import AdminUserDep, CurrentUserDep, OptionalUserDep, SessionDep
 from app.core.security import create_access_token
 from app.models.user import UserRole
 from app.schemas.user import LoginRequest, Token, UserCreate, UserRead
@@ -96,3 +96,17 @@ def read_current_user_profile(
 ) -> UserRead:
     """Return profile attributes of the currently authenticated user."""
     return current_user
+
+
+@router.get(
+    "/admin-only",
+    summary="Sample admin-only endpoint to verify role authorization",
+)
+def admin_only_sample(
+    admin_user: AdminUserDep,
+) -> dict[str, str]:
+    """Sample protected endpoint accessible strictly by administrators."""
+    return {
+        "message": f"Welcome Admin {admin_user.email}! Access granted.",
+        "role": admin_user.role.value,
+    }

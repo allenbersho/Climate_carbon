@@ -154,3 +154,60 @@ def test_seed_admin_script(client: TestClient, db_session: Session) -> None:
     )
     assert login_res.status_code == status.HTTP_200_OK
     assert "access_token" in login_res.json()
+
+
+def test_admin_only_route_401_vs_403(client: TestClient) -> None:
+    """Verify the strict contrast between 401 Unauthorized and 403 Forbidden."""
+    # 1. Access without any credentials -> 401 Unauthorized (AuthN failure: missing token)
+    no_token_res = client.get("/api/v1/auth/admin-only")
+    assert no_token_res.status_code == status.HTTP_401_UNAUTHORIZED
+    assert no_token_res.json()["error"]["code"] == "UNAUTHENTICATED"
+
+    # 2. Access with invalid/tampered token -> 401 Unauthorized (AuthN failure: unverified identity)
+    bad_token_res = client.get(
+        "/api/v1/auth/admin-only",
+        headers={"Authorization": "Bearer totally-invalid-token"},
+    )
+    assert bad_token_res.status_code == status.HTTP_401_UNAUTHORIZED
+    assert bad_token_res.json()["error"]["code"] == "UNAUTHENTICATED"
+
+    # 3. Bootstrap initial admin account
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": "bootstrap.admin@carbontrack.org", "password": "AdminPassword123!"},
+    )
+    admin_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "bootstrap.admin@carbontrack.org", "password": "AdminPassword123!"},
+    )
+    admin_token = admin_login.json()["access_token"]
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # 4. Admin registers a Field Officer
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "officer.worker@carbontrack.org",
+            "password": "OfficerPassword123!",
+            "role": "field_officer",
+        },
+        headers=admin_headers,
+    )
+    officer_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "officer.worker@carbontrack.org", "password": "OfficerPassword123!"},
+    )
+    officer_token = officer_login.json()["access_token"]
+    officer_headers = {"Authorization": f"Bearer {officer_token}"}
+
+    # 5. Field Officer attempts to access admin route -> 403 Forbidden (AuthZ failure: known identity, lacking permission)
+    forbidden_res = client.get("/api/v1/auth/admin-only", headers=officer_headers)
+    assert forbidden_res.status_code == status.HTTP_403_FORBIDDEN
+    assert forbidden_res.json()["error"]["code"] == "FORBIDDEN"
+    assert "Operation not permitted" in forbidden_res.json()["error"]["message"]
+
+    # 6. Admin user accesses admin route -> 200 OK (AuthN and AuthZ both succeed!)
+    allowed_res = client.get("/api/v1/auth/admin-only", headers=admin_headers)
+    assert allowed_res.status_code == status.HTTP_200_OK
+    assert "Welcome Admin" in allowed_res.json()["message"]
+    assert allowed_res.json()["role"] == "admin"
