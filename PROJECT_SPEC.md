@@ -124,7 +124,7 @@ carbontrack/
 
 - [x] Phase 0: Setup and skeleton
 - [x] Phase 1: Auth and users
-- [ ] Phase 2: Farmers, projects, parcels
+- [x] Phase 2: Farmers, projects, parcels
 - [ ] Phase 3: Enrollments and activities
 - [ ] Phase 4: Monitoring and observations
 - [ ] Phase 5: Validation pipeline
