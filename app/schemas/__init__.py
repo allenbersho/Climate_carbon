@@ -7,6 +7,13 @@ from app.schemas.farmer import (
     FarmerRead,
     FarmerUpdate,
 )
+from app.schemas.project import (
+    ProjectBase,
+    ProjectCreate,
+    ProjectListResponse,
+    ProjectRead,
+    ProjectUpdate,
+)
 from app.schemas.user import (
     LoginRequest,
     Token,
@@ -23,6 +30,11 @@ __all__ = [
     "FarmerRead",
     "FarmerUpdate",
     "LoginRequest",
+    "ProjectBase",
+    "ProjectCreate",
+    "ProjectListResponse",
+    "ProjectRead",
+    "ProjectUpdate",
     "Token",
     "TokenPayload",
     "UserBase",
