@@ -31,11 +31,11 @@ class Farmer(Base):
         nullable=False,
     )
 
-    # Relationships
+    # Relationships (lazy="select" avoids loading child parcels when only querying farmers)
     parcels: Mapped[list["LandParcel"]] = relationship(
         "LandParcel",
         back_populates="farmer",
-        lazy="selectin",
+        lazy="select",
     )
 
     def __repr__(self) -> str:

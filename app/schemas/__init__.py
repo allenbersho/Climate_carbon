@@ -1,5 +1,12 @@
 """Pydantic request and response schemas."""
 
+from app.schemas.enrollment import (
+    EnrollmentBase,
+    EnrollmentCreate,
+    EnrollmentListResponse,
+    EnrollmentRead,
+    EnrollmentUpdate,
+)
 from app.schemas.farmer import (
     FarmerBase,
     FarmerCreate,
@@ -31,6 +38,11 @@ from app.schemas.user import (
 )
 
 __all__ = [
+    "EnrollmentBase",
+    "EnrollmentCreate",
+    "EnrollmentListResponse",
+    "EnrollmentRead",
+    "EnrollmentUpdate",
     "FarmerBase",
     "FarmerCreate",
     "FarmerListResponse",
