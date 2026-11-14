@@ -7,6 +7,13 @@ from app.schemas.farmer import (
     FarmerRead,
     FarmerUpdate,
 )
+from app.schemas.land_parcel import (
+    LandParcelBase,
+    LandParcelCreate,
+    LandParcelListResponse,
+    LandParcelRead,
+    LandParcelUpdate,
+)
 from app.schemas.project import (
     ProjectBase,
     ProjectCreate,
@@ -29,6 +36,11 @@ __all__ = [
     "FarmerListResponse",
     "FarmerRead",
     "FarmerUpdate",
+    "LandParcelBase",
+    "LandParcelCreate",
+    "LandParcelListResponse",
+    "LandParcelRead",
+    "LandParcelUpdate",
     "LoginRequest",
     "ProjectBase",
     "ProjectCreate",

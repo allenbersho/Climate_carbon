@@ -2,9 +2,10 @@
 
 from fastapi import APIRouter
 
-from app.api.routes import auth, farmers, projects
+from app.api.routes import auth, farmers, parcels, projects
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(farmers.router)
+api_router.include_router(parcels.router)
 api_router.include_router(projects.router)

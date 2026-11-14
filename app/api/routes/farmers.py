@@ -12,7 +12,9 @@ from app.schemas.farmer import (
     FarmerRead,
     FarmerUpdate,
 )
-from app.services import farmer_service
+from app.schemas.land_parcel import LandParcelRead
+from app.services import farmer_service, parcel_service
+from app.services.parcel_service import FarmerNotFoundError
 
 router = APIRouter(prefix="/farmers", tags=["Farmers"])
 
@@ -63,6 +65,27 @@ def get_farmer(
             detail=f"Farmer with id {farmer_id} not found",
         )
     return farmer
+
+
+@router.get(
+    "/{farmer_id}/parcels",
+    response_model=list[LandParcelRead],
+    summary="Get all parcels belonging to a farmer",
+    description="Accessible by all authenticated roles. Returns all parcels owned by the active farmer.",
+)
+def get_farmer_parcels(
+    farmer_id: int,
+    db: SessionDep,
+    _current_user: CurrentUserDep,
+) -> list[LandParcelRead]:
+    """Retrieve all land parcels associated with a farmer."""
+    try:
+        return parcel_service.get_parcels_by_farmer(db, farmer_id=farmer_id)
+    except FarmerNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get(
