@@ -129,7 +129,7 @@ carbontrack/
 - [x] Phase 4: Monitoring and observations
 - [x] Phase 5: Validation pipeline
 - [x] Phase 6: Carbon engine
-- [ ] Phase 7: Analytics and reporting
+- [x] Phase 7: Analytics and reporting
 - [ ] Phase 8: Bulk import and background jobs
 - [ ] Phase 9: Audit, security, hardening
 - [ ] Phase 10: Testing, CI, deployment

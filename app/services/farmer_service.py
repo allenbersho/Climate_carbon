@@ -1,10 +1,19 @@
 """Farmer domain services and business logic."""
 
+import csv
+import io
+from typing import Any
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.farmer import Farmer
-from app.schemas.farmer import FarmerCreate, FarmerUpdate
+from app.schemas.farmer import (
+    FarmerBulkImportResult,
+    FarmerCreate,
+    FarmerImportRowError,
+    FarmerUpdate,
+)
 
 
 def create_farmer(db: Session, farmer_in: FarmerCreate) -> Farmer:
@@ -118,3 +127,128 @@ def soft_delete_farmer(db: Session, farmer: Farmer) -> Farmer:
     db.commit()
     db.refresh(farmer)
     return farmer
+
+
+def _parse_boolean_consent(value: Any) -> bool:
+    """Parse various truthy/falsy string representations into a boolean."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    return s in {"true", "1", "yes", "y", "t"}
+
+
+def bulk_import_farmers_from_csv(
+    db: Session,
+    file_content: bytes | str,
+) -> FarmerBulkImportResult:
+    """Import farmers from a CSV file, validating row by row.
+
+    Why: Task 8.1 requires bulk uploading farmer records where bad rows do not
+    halt the batch, returning an error diagnostic report for rejected rows.
+    Inputs: db (SQLAlchemy session), file_content (raw CSV bytes or decoded text)
+    Outputs: FarmerBulkImportResult summarizing total, imported, and failed rows.
+    """
+    if isinstance(file_content, bytes):
+        try:
+            text = file_content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = file_content.decode("latin-1")
+    else:
+        text = file_content
+
+    if not text.strip():
+        return FarmerBulkImportResult(total_rows=0, imported_count=0, failed_count=0, errors=[])
+
+    stream = io.StringIO(text)
+    reader = csv.reader(stream)
+
+    try:
+        raw_header = next(reader)
+    except StopIteration:
+        return FarmerBulkImportResult(total_rows=0, imported_count=0, failed_count=0, errors=[])
+
+    # Normalize header column names
+    header_map: dict[int, str] = {}
+    for idx, col in enumerate(raw_header):
+        cleaned = col.strip().lower().replace(" ", "_")
+        # Map common aliases
+        if cleaned in {"consent", "farmer_consent", "is_consent_given"}:
+            cleaned = "consent_given"
+        elif cleaned in {"farmer_name", "full_name"}:
+            cleaned = "name"
+        elif cleaned in {"mobile", "phone_number", "contact"}:
+            cleaned = "phone"
+        header_map[idx] = cleaned
+
+    valid_farmers: list[Farmer] = []
+    errors: list[FarmerImportRowError] = []
+    total_data_rows = 0
+
+    # Start enumerating data rows at line 2 (line 1 is the header)
+    for row_idx, row in enumerate(reader, start=2):
+        # Skip completely blank lines
+        if not row or not any(cell.strip() for cell in row):
+            continue
+
+        total_data_rows += 1
+
+        # Build raw row dictionary
+        raw_dict: dict[str, str | None] = {}
+        for col_idx, col_name in header_map.items():
+            if col_idx < len(row):
+                raw_dict[col_name] = row[col_idx]
+            else:
+                raw_dict[col_name] = None
+
+        # Clean fields
+        name_val = raw_dict.get("name")
+        phone_val = raw_dict.get("phone")
+        village_val = raw_dict.get("village")
+        district_val = raw_dict.get("district")
+        state_val = raw_dict.get("state")
+        consent_raw = raw_dict.get("consent_given")
+
+        cleaned_payload = {
+            "name": name_val.strip() if name_val else "",
+            "phone": phone_val.strip() if phone_val and phone_val.strip() else None,
+            "village": village_val.strip() if village_val and village_val.strip() else None,
+            "district": district_val.strip() if district_val and district_val.strip() else None,
+            "state": state_val.strip() if state_val and state_val.strip() else None,
+            "consent_given": _parse_boolean_consent(consent_raw),
+        }
+
+        try:
+            validated = FarmerCreate(**cleaned_payload)
+            farmer_model = Farmer(
+                name=validated.name,
+                phone=validated.phone,
+                village=validated.village,
+                district=validated.district,
+                state=validated.state,
+                consent_given=validated.consent_given,
+                is_deleted=False,
+            )
+            valid_farmers.append(farmer_model)
+        except ValidationError as exc:
+            reasons = [f"{err['loc'][-1]}: {err['msg']}" for err in exc.errors()]
+            errors.append(
+                FarmerImportRowError(
+                    row_number=row_idx,
+                    data=raw_dict,
+                    reason="; ".join(reasons),
+                )
+            )
+
+    # Persist all valid farmers in a single transaction
+    if valid_farmers:
+        db.add_all(valid_farmers)
+        db.commit()
+
+    return FarmerBulkImportResult(
+        total_rows=total_data_rows,
+        imported_count=len(valid_farmers),
+        failed_count=len(errors),
+        errors=errors,
+    )

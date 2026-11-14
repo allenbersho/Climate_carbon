@@ -28,7 +28,9 @@ from app.schemas.enrollment import (
 )
 from app.schemas.farmer import (
     FarmerBase,
+    FarmerBulkImportResult,
     FarmerCreate,
+    FarmerImportRowError,
     FarmerListResponse,
     FarmerRead,
     FarmerUpdate,
@@ -100,7 +102,9 @@ __all__ = [
     "EnrollmentUpdate",
     "EstimateCreateRequest",
     "FarmerBase",
+    "FarmerBulkImportResult",
     "FarmerCreate",
+    "FarmerImportRowError",
     "FarmerListResponse",
     "FarmerRead",
     "FarmerUpdate",

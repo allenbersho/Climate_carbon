@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
 from app.models.user import UserRole
 from app.schemas.farmer import (
+    FarmerBulkImportResult,
     FarmerCreate,
     FarmerListResponse,
     FarmerRead,
@@ -44,6 +45,27 @@ def create_farmer(
     """Create a new farmer in the MRV system."""
     new_farmer = farmer_service.create_farmer(db, farmer_in)
     return new_farmer
+
+
+@router.post(
+    "/bulk-import",
+    response_model=FarmerBulkImportResult,
+    summary="Bulk import farmers from CSV",
+    description="Upload a CSV file containing farmer records. Each row is validated independently; bad rows do not halt the import.",
+)
+async def bulk_import_farmers(
+    db: SessionDep,
+    _current_user: CanManageFarmers,
+    file: UploadFile = File(..., description="CSV file containing farmer records"),
+) -> FarmerBulkImportResult:
+    """Bulk upload and parse farmer records from a CSV file."""
+    if file.filename and not file.filename.lower().endswith((".csv", ".txt")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a CSV file (.csv).",
+        )
+    contents = await file.read()
+    return farmer_service.bulk_import_farmers_from_csv(db, contents)
 
 
 @router.get(

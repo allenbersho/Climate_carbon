@@ -62,3 +62,23 @@ class FarmerListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FarmerImportRowError(BaseModel):
+    """Details of a single CSV row validation failure during bulk import."""
+
+    row_number: int = Field(..., description="1-indexed row number in the CSV file (row 1 is header)")
+    data: dict[str, str | None] = Field(..., description="Raw row values parsed from the CSV")
+    reason: str = Field(..., description="Description of why this row failed validation")
+
+
+class FarmerBulkImportResult(BaseModel):
+    """Aggregated outcome of a CSV bulk farmer import operation."""
+
+    total_rows: int = Field(..., description="Total data rows evaluated (excluding header)")
+    imported_count: int = Field(..., description="Number of valid farmer records successfully created")
+    failed_count: int = Field(..., description="Number of rows rejected due to validation errors")
+    errors: list[FarmerImportRowError] = Field(
+        default_factory=list,
+        description="Detailed list of error diagnostics for each rejected row",
+    )
