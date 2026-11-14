@@ -127,7 +127,7 @@ carbontrack/
 - [x] Phase 2: Farmers, projects, parcels
 - [x] Phase 3: Enrollments and activities
 - [x] Phase 4: Monitoring and observations
-- [ ] Phase 5: Validation pipeline
+- [x] Phase 5: Validation pipeline
 - [ ] Phase 6: Carbon engine
 - [ ] Phase 7: Analytics and reporting
 - [ ] Phase 8: Bulk import and background jobs
