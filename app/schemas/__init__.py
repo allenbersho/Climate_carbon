@@ -1,5 +1,12 @@
 """Pydantic request and response schemas."""
 
+from app.schemas.activity import (
+    ActivityBase,
+    ActivityCreate,
+    ActivityListResponse,
+    ActivityRead,
+    ActivityUpdate,
+)
 from app.schemas.enrollment import (
     EnrollmentBase,
     EnrollmentCreate,
@@ -38,6 +45,11 @@ from app.schemas.user import (
 )
 
 __all__ = [
+    "ActivityBase",
+    "ActivityCreate",
+    "ActivityListResponse",
+    "ActivityRead",
+    "ActivityUpdate",
     "EnrollmentBase",
     "EnrollmentCreate",
     "EnrollmentListResponse",

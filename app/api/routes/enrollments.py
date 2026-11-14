@@ -1,5 +1,6 @@
 """Enrollment management API routes."""
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,13 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
 from app.models.enrollment import EnrollmentStatus
 from app.models.user import UserRole
+from app.schemas.activity import ActivityRead
 from app.schemas.enrollment import (
     EnrollmentCreate,
     EnrollmentListResponse,
     EnrollmentRead,
     EnrollmentUpdate,
 )
-from app.services import enrollment_service
+from app.services import activity_service, enrollment_service
+from app.services.activity_service import EnrollmentNotFoundError as ActivityEnrollmentNotFoundError
 from app.services.enrollment_service import (
     DuplicateActiveEnrollmentError,
     EnrollmentNotFoundError,
@@ -142,5 +145,33 @@ def update_enrollment(
     except DuplicateActiveEnrollmentError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/{enrollment_id}/activities",
+    response_model=list[ActivityRead],
+    summary="Get all activities for an enrollment with date-range filters",
+    description="Accessible by all authenticated roles. Filter by optional from_date and to_date.",
+)
+def get_enrollment_activities(
+    enrollment_id: int,
+    db: SessionDep,
+    _current_user: CurrentUserDep,
+    from_date: date | None = Query(default=None, description="Start date (YYYY-MM-DD)"),
+    to_date: date | None = Query(default=None, description="End date (YYYY-MM-DD)"),
+) -> list[ActivityRead]:
+    """Retrieve all activities recorded for a specific enrollment."""
+    try:
+        return activity_service.get_activities_by_enrollment(
+            db,
+            enrollment_id=enrollment_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+    except ActivityEnrollmentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
