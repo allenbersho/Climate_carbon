@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import get_db
+from app.core.rate_limit import api_rate_limiter, auth_rate_limiter
 from app.db.session import Base
 from app.main import app
 
@@ -38,6 +39,16 @@ def clean_database() -> Generator[None, None, None]:
 def override_db_session_factory(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure background tasks and services use the isolated test database session factory."""
     monkeypatch.setattr("app.db.session.SessionLocal", TestingSessionLocal)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiters() -> Generator[None, None, None]:
+    """Ensure in-memory rate limiters start fresh for every individual test."""
+    auth_rate_limiter.reset()
+    api_rate_limiter.reset()
+    yield
+    auth_rate_limiter.reset()
+    api_rate_limiter.reset()
 
 
 @pytest.fixture(scope="session", autouse=True)

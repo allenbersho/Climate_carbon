@@ -1,12 +1,24 @@
-"""FastAPI main application entrypoint."""
+"""FastAPI main application entrypoint with security hardening and structured logging."""
 
+import logging
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.deps import SessionDep
 from app.api.routes import api_router
 from app.core.config import settings
+from app.core.logging import setup_logging
+
+# Initialize structured logging on application boot
+setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
+logger = logging.getLogger(__name__)
+
+if settings.ENVIRONMENT == "production" and "dev-secret-key" in settings.SECRET_KEY:
+    logger.warning("SECURITY WARNING: Running in production with default development SECRET_KEY!")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -16,6 +28,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Cross-Origin Resource Sharing (CORS) Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Standardized error code mapping per PROJECT_SPEC.md Section 8
 _STATUS_CODE_MAP = {
     400: "BAD_REQUEST",
@@ -23,7 +44,9 @@ _STATUS_CODE_MAP = {
     403: "FORBIDDEN",
     404: "NOT_FOUND",
     409: "CONFLICT",
+    413: "PAYLOAD_TOO_LARGE",
     422: "VALIDATION_ERROR",
+    429: "RATE_LIMIT_EXCEEDED",
     500: "INTERNAL_SERVER_ERROR",
     503: "SERVICE_UNAVAILABLE",
 }
@@ -44,6 +67,37 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
             }
         },
         headers=headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Format Pydantic schema validation errors with standard error structure."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Request validation failed.",
+                "details": jsonable_encoder(exc.errors()),
+            }
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Global catch-all exception handler to prevent leaking raw internal stack traces."""
+    logger.exception(f"Unhandled server error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected internal server error occurred. Please contact system support.",
+                "details": None,
+            }
+        },
     )
 
 
@@ -77,3 +131,10 @@ def root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/health",
     }
+
+
+if settings.ENVIRONMENT != "production":
+    @app.get("/test-unhandled-error", include_in_schema=False)
+    def test_unhandled_error() -> None:
+        """Endpoint used exclusively in test suites to verify 500 error sanitization."""
+        raise RuntimeError("Deliberate internal explosion to verify global 500 error sanitization")

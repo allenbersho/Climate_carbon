@@ -1,8 +1,9 @@
 """Authentication and user registration API routes."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import AdminUserDep, CurrentUserDep, OptionalUserDep, SessionDep
+from app.core.rate_limit import auth_rate_limiter
 from app.core.security import create_access_token
 from app.models.user import UserRole
 from app.schemas.user import LoginRequest, Token, UserCreate, UserRead
@@ -60,6 +61,7 @@ def register(
 @router.post(
     "/login",
     response_model=Token,
+    dependencies=[Depends(auth_rate_limiter)],
     summary="Authenticate and receive a JWT access token",
 )
 def login(

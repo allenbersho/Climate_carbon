@@ -15,6 +15,7 @@ from fastapi import (
 )
 
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
+from app.core.config import settings
 from app.models.user import UserRole
 from app.schemas.farmer import (
     FarmerBulkImportResult,
@@ -76,6 +77,11 @@ async def bulk_import_farmers(
             detail="Uploaded file must be a CSV file (.csv).",
         )
     contents = await file.read()
+    if len(contents) > settings.MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds maximum allowed upload limit of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB.",
+        )
     return farmer_service.bulk_import_farmers_from_csv(db, contents)
 
 
@@ -99,6 +105,11 @@ async def bulk_import_farmers_async(
             detail="Uploaded file must be a CSV file (.csv).",
         )
     contents = await file.read()
+    if len(contents) > settings.MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds maximum allowed upload limit of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB.",
+        )
     job = job_service.create_job(
         db,
         job_type="farmer_bulk_import",
