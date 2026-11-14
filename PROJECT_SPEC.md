@@ -126,7 +126,7 @@ carbontrack/
 - [x] Phase 1: Auth and users
 - [x] Phase 2: Farmers, projects, parcels
 - [x] Phase 3: Enrollments and activities
-- [ ] Phase 4: Monitoring and observations
+- [x] Phase 4: Monitoring and observations
 - [ ] Phase 5: Validation pipeline
 - [ ] Phase 6: Carbon engine
 - [ ] Phase 7: Analytics and reporting
