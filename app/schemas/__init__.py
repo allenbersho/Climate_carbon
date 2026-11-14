@@ -7,6 +7,11 @@ from app.schemas.activity import (
     ActivityRead,
     ActivityUpdate,
 )
+from app.schemas.analytics import (
+    AnalyticsSummaryResponse,
+    DistrictBreakdown,
+    ProjectAnalyticsResponse,
+)
 from app.schemas.carbon import (
     CarbonEstimateListResponse,
     CarbonEstimateRead,
@@ -81,8 +86,10 @@ __all__ = [
     "ActivityListResponse",
     "ActivityRead",
     "ActivityUpdate",
+    "AnalyticsSummaryResponse",
     "CarbonEstimateListResponse",
     "CarbonEstimateRead",
+    "DistrictBreakdown",
     "EnrollmentBase",
     "EnrollmentCreate",
     "EnrollmentListResponse",
@@ -111,6 +118,7 @@ __all__ = [
     "ObservationCreate",
     "ObservationListResponse",
     "ObservationRead",
+    "ProjectAnalyticsResponse",
     "ProjectBase",
     "ProjectCreate",
     "ProjectListResponse",
