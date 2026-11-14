@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.enrollment import Enrollment
 from app.models.observation import Observation, ObservationType
@@ -156,11 +156,16 @@ def supersede_observation(
 def get_observation_by_id(db: Session, observation_id: int) -> Observation | None:
     """Fetch a single observation record by primary key ID.
 
-    Why: Allows auditors and verifiers to review specific measurements and lineage.
+    Why: Allows auditors and verifiers to review specific measurements, lineage, and issues.
     Inputs: db (Session), observation_id (int)
     Outputs: Observation instance if found, None otherwise.
     """
-    return db.get(Observation, observation_id)
+    stmt = (
+        select(Observation)
+        .options(selectinload(Observation.validation_issues))
+        .where(Observation.id == observation_id)
+    )
+    return db.execute(stmt).scalars().first()
 
 
 def list_observations(
@@ -206,7 +211,8 @@ def list_observations(
 
     offset = (page - 1) * page_size
     paged_query = (
-        base_query.order_by(Observation.observed_at.desc(), Observation.id.desc())
+        base_query.options(selectinload(Observation.validation_issues))
+        .order_by(Observation.observed_at.desc(), Observation.id.desc())
         .offset(offset)
         .limit(page_size)
     )
@@ -231,7 +237,11 @@ def get_observations_by_enrollment(
     if not enrollment:
         raise EnrollmentNotFoundError(f"Enrollment with ID {enrollment_id} not found.")
 
-    query = select(Observation).where(Observation.enrollment_id == enrollment_id)
+    query = (
+        select(Observation)
+        .options(selectinload(Observation.validation_issues))
+        .where(Observation.enrollment_id == enrollment_id)
+    )
     if active_only:
         query = query.where(Observation.superseded_by.is_(None))
 

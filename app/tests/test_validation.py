@@ -360,5 +360,275 @@ def test_clean_observation_has_zero_issues(client: TestClient) -> None:
     assert summary_res.status_code == status.HTTP_200_OK
     summary = summary_res.json()
     assert summary["is_valid"] is True
+    assert summary["excluded_from_estimation"] is False
     assert summary["error_count"] == 0
     assert summary["issues"] == []
+
+
+def test_create_observation_returns_issues_and_exclusion_flag(client: TestClient) -> None:
+    """Task 5.2: Verify observation submission automatically runs validation, returns issues,
+
+    and flags error-severity observations as excluded_from_estimation=True.
+    """
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.auto1@carbontrack.org", UserRole.FIELD_OFFICER)
+
+    farmer_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Kallappa", "district": "Belagavi", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    parcel_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 5.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    project_id = client.post(
+        "/api/v1/projects",
+        json={"name": "Belagavi Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()["id"]
+
+    enrollment_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    # Submit observation with implausible tree count (30,000 trees on 5 acres = 6,000 trees/acre > 2,500 max)
+    # and no baseline exists yet -> triggers both missing_baseline_check AND implausible_trees_per_acre_check
+    res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 30000, "avg_height_m": 2.5},
+            "observed_at": "2025-06-01T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    )
+    assert res.status_code == status.HTTP_201_CREATED
+    data = res.json()
+
+    # Verify Task 5.2 requirements:
+    # 1. Issues are returned directly in the creation response
+    assert "issues" in data
+    assert isinstance(data["issues"], list)
+    assert len(data["issues"]) >= 2
+
+    # 2. Error-severity observations are flagged as excluded from estimation
+    assert data["is_valid"] is False
+    assert data["excluded_from_estimation"] is True
+
+    rule_names = [issue["rule"] for issue in data["issues"]]
+    assert "missing_baseline_check" in rule_names
+    assert "implausible_trees_per_acre_check" in rule_names
+    assert all(issue["severity"] == "error" for issue in data["issues"])
+
+
+def test_create_clean_observation_not_excluded_from_estimation(client: TestClient) -> None:
+    """Task 5.2: Verify clean observation returns is_valid=True and excluded_from_estimation=False."""
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.auto2@carbontrack.org", UserRole.FIELD_OFFICER)
+
+    farmer_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Basavaraj", "district": "Dharwad", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    parcel_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 12.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    project_id = client.post(
+        "/api/v1/projects",
+        json={"name": "Dharwad Soil Carbon", "type": "regen_ag", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()["id"]
+
+    enrollment_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    # Submit valid baseline observation
+    res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "soil",
+            "values": {"soc_percent": 1.8, "bulk_density": 1.2, "depth_cm": 30.0},
+            "observed_at": "2025-02-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    assert res.status_code == status.HTTP_201_CREATED
+    data = res.json()
+
+    assert data["is_valid"] is True
+    assert data["excluded_from_estimation"] is False
+    assert data["issues"] == []
+
+
+def test_supersede_observation_runs_validation_and_returns_issues(client: TestClient) -> None:
+    """Task 5.2: Verify append-only corrections via supersede automatically validate and return issues."""
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.auto3@carbontrack.org", UserRole.FIELD_OFFICER)
+
+    farmer_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Ningappa", "district": "Haveri", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    parcel_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 8.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    project_id = client.post(
+        "/api/v1/projects",
+        json={"name": "Haveri Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()["id"]
+
+    enrollment_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    # 1. Baseline observation
+    base_res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 1000, "avg_height_m": 2.0},
+            "observed_at": "2025-01-10T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    assert base_res.json()["excluded_from_estimation"] is False
+
+    # 2. Subsequent observation with invalid tree drop: from 1000 down to 500 (50% drop > 30% threshold -> warning)
+    obs_res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 500, "avg_height_m": 2.5},
+            "observed_at": "2025-04-10T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    )
+    obs_id = obs_res.json()["id"]
+    # Tree drop is a warning, so is_valid remains True and excluded_from_estimation is False
+    assert obs_res.json()["is_valid"] is True
+    assert obs_res.json()["excluded_from_estimation"] is False
+    assert len(obs_res.json()["issues"]) == 1
+    assert obs_res.json()["issues"][0]["severity"] == "warning"
+
+    # 3. Supersede with corrected values: now count is 950 (5% drop, fully plausible)
+    sup_res = client.post(
+        "/api/v1/observations/{}/supersede".format(obs_id),
+        json={
+            "values": {"count": 950, "avg_height_m": 2.6},
+            "observed_at": "2025-04-10T10:00:00Z",
+        },
+        headers=officer_headers,
+    )
+    assert sup_res.status_code == status.HTTP_201_CREATED
+    sup_data = sup_res.json()
+    assert sup_data["is_valid"] is True
+    assert sup_data["excluded_from_estimation"] is False
+    assert sup_data["issues"] == []
+
+
+def test_get_observation_issues_endpoint_severity_filter(client: TestClient) -> None:
+    """Task 5.2: Verify GET /api/v1/observations/{id}/issues and severity query filtering."""
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.auto4@carbontrack.org", UserRole.FIELD_OFFICER)
+
+    farmer_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Mallikarjun", "district": "Bagalkot", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    parcel_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 5.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    project_id = client.post(
+        "/api/v1/projects",
+        json={"name": "Bagalkot Trees", "type": "afforestation", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()["id"]
+
+    enrollment_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    # Baseline with 1000 trees
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 1000, "avg_height_m": 2.0},
+            "observed_at": "2025-01-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+
+    # Observation with 50% drop (warning: 1000 -> 500)
+    obs = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 500, "avg_height_m": 2.2},
+            "observed_at": "2025-03-01T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    ).json()
+    obs_id = obs["id"]
+
+    # 1. GET issues without filter
+    all_issues_res = client.get(f"/api/v1/observations/{obs_id}/issues", headers=officer_headers)
+    assert all_issues_res.status_code == status.HTTP_200_OK
+    summary = all_issues_res.json()
+    assert summary["observation_id"] == obs_id
+    assert summary["is_valid"] is True
+    assert summary["excluded_from_estimation"] is False
+    assert summary["warning_count"] == 1
+    assert len(summary["issues"]) == 1
+
+    # 2. GET issues with severity=warning filter
+    warn_res = client.get(f"/api/v1/observations/{obs_id}/issues?severity=warning", headers=officer_headers)
+    assert warn_res.status_code == status.HTTP_200_OK
+    assert len(warn_res.json()["issues"]) == 1
+    assert warn_res.json()["issues"][0]["severity"] == "warning"
+
+    # 3. GET issues with severity=error filter
+    err_res = client.get(f"/api/v1/observations/{obs_id}/issues?severity=error", headers=officer_headers)
+    assert err_res.status_code == status.HTTP_200_OK
+    assert len(err_res.json()["issues"]) == 0

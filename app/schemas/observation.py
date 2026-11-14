@@ -5,6 +5,7 @@ from typing import Any, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.observation import ObservationType
+from app.schemas.validation import ValidationIssueRead
 
 
 class SoilObservationValues(BaseModel):
@@ -143,7 +144,7 @@ class ObservationCorrectionCreate(BaseModel):
 class ObservationRead(BaseModel):
     """Public read schema for an observation record."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     enrollment_id: int
@@ -154,6 +155,22 @@ class ObservationRead(BaseModel):
     is_baseline: bool
     superseded_by: int | None
     created_at: datetime
+    is_valid: bool = Field(
+        default=True,
+        description="True if the observation has zero 'error'-severity validation issues",
+    )
+    excluded_from_estimation: bool = Field(
+        default=False,
+        description="True if error-severity validation issues exclude this observation from carbon estimation",
+    )
+    issues: list[ValidationIssueRead] = Field(
+        default_factory=list,
+        description="List of validation issues flagged by automated rules",
+    )
+    validation_issues: list[ValidationIssueRead] = Field(
+        default_factory=list,
+        description="Alias for issues for backwards compatibility and clarity",
+    )
 
 
 class ObservationListResponse(BaseModel):

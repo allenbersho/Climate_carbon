@@ -32,6 +32,10 @@ class ObservationValidationSummary(BaseModel):
         ...,
         description="True if the observation has zero 'error'-severity issues (eligible for estimation)",
     )
+    excluded_from_estimation: bool = Field(
+        default=False,
+        description="True if any error-severity validation issue exists, excluding this observation from carbon estimation",
+    )
     error_count: int = Field(default=0)
     warning_count: int = Field(default=0)
     info_count: int = Field(default=0)

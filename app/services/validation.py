@@ -311,6 +311,7 @@ def validate_observation(
 def get_observation_validation_summary(
     db: Session,
     observation_id: int,
+    severity: ValidationSeverity | None = None,
 ) -> ObservationValidationSummary:
     """Return the validation summary and stored issues for an observation.
 
@@ -325,17 +326,24 @@ def get_observation_validation_summary(
         .where(ValidationIssue.observation_id == observation_id)
         .order_by(ValidationIssue.id.asc())
     )
-    issues = list(db.execute(statement).scalars().all())
+    all_issues = list(db.execute(statement).scalars().all())
 
-    error_count = sum(1 for i in issues if i.severity == ValidationSeverity.ERROR)
-    warning_count = sum(1 for i in issues if i.severity == ValidationSeverity.WARNING)
-    info_count = sum(1 for i in issues if i.severity == ValidationSeverity.INFO)
+    error_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.ERROR)
+    warning_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.WARNING)
+    info_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.INFO)
+    excluded_from_estimation = error_count > 0
+    is_valid = error_count == 0
+
+    returned_issues = all_issues
+    if severity is not None:
+        returned_issues = [i for i in all_issues if i.severity == severity]
 
     return ObservationValidationSummary(
         observation_id=observation_id,
-        is_valid=(error_count == 0),
+        is_valid=is_valid,
+        excluded_from_estimation=excluded_from_estimation,
         error_count=error_count,
         warning_count=warning_count,
         info_count=info_count,
-        issues=[ValidationIssueRead.model_validate(i) for i in issues],
+        issues=[ValidationIssueRead.model_validate(i) for i in returned_issues],
     )

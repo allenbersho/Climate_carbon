@@ -70,7 +70,7 @@ class ValidationIssue(Base):
     )
 
     # Relationship to the monitored observation
-    observation: Mapped["Observation"] = relationship("Observation")
+    observation: Mapped["Observation"] = relationship("Observation", back_populates="validation_issues")
 
     def __repr__(self) -> str:
         return (

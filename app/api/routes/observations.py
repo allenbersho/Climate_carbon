@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
 from app.models.observation import ObservationType
 from app.models.user import UserRole
+from app.models.validation_issue import ValidationSeverity
 from app.schemas.observation import (
     ObservationCorrectionCreate,
     ObservationCreate,
@@ -53,7 +54,8 @@ def create_observation(
             observer_id=current_user.id,
         )
         validation.validate_observation(db, obs.id, persist=True)
-        return obs
+        obs_with_issues = observation_service.get_observation_by_id(db, obs.id)
+        return obs_with_issues or obs
     except EnrollmentNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -88,7 +90,8 @@ def supersede_observation(
             observer_id=current_user.id,
         )
         validation.validate_observation(db, new_obs.id, persist=True)
-        return new_obs
+        new_obs_with_issues = observation_service.get_observation_by_id(db, new_obs.id)
+        return new_obs_with_issues or new_obs
     except ObservationNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -204,10 +207,18 @@ def get_observation_issues_endpoint(
     observation_id: int,
     db: SessionDep,
     _current_user: CurrentUserDep,
+    severity: ValidationSeverity | None = Query(
+        default=None,
+        description="Filter issues by severity (info, warning, error)",
+    ),
 ) -> ObservationValidationSummary:
     """Fetch stored validation issues and eligibility status for an observation."""
     try:
-        return validation.get_observation_validation_summary(db, observation_id)
+        return validation.get_observation_validation_summary(
+            db,
+            observation_id=observation_id,
+            severity=severity,
+        )
     except ObservationNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
