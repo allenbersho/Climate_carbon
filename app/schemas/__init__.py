@@ -57,6 +57,11 @@ from app.schemas.user import (
     UserCreate,
     UserRead,
 )
+from app.schemas.validation import (
+    ObservationValidationSummary,
+    ValidationIssueItem,
+    ValidationIssueRead,
+)
 
 __all__ = [
     "ActivityBase",
@@ -97,4 +102,7 @@ __all__ = [
     "UserBase",
     "UserCreate",
     "UserRead",
+    "ObservationValidationSummary",
+    "ValidationIssueItem",
+    "ValidationIssueRead",
 ]

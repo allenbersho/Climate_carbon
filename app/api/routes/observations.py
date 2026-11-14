@@ -14,7 +14,8 @@ from app.schemas.observation import (
     ObservationListResponse,
     ObservationRead,
 )
-from app.services import observation_service
+from app.schemas.validation import ObservationValidationSummary
+from app.services import observation_service, validation
 from app.services.observation_service import (
     EnrollmentNotFoundError,
     FutureObservationDateError,
@@ -46,11 +47,13 @@ def create_observation(
 ) -> ObservationRead:
     """Record a new monitoring observation."""
     try:
-        return observation_service.create_observation(
+        obs = observation_service.create_observation(
             db,
             observation_in=observation_in,
             observer_id=current_user.id,
         )
+        validation.validate_observation(db, obs.id, persist=True)
+        return obs
     except EnrollmentNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -84,6 +87,7 @@ def supersede_observation(
             correction_in=correction_in,
             observer_id=current_user.id,
         )
+        validation.validate_observation(db, new_obs.id, persist=True)
         return new_obs
     except ObservationNotFoundError as exc:
         raise HTTPException(
@@ -166,3 +170,46 @@ def list_observations(
         page=page,
         page_size=page_size,
     )
+
+
+@router.post(
+    "/{observation_id}/validate",
+    response_model=ObservationValidationSummary,
+    summary="Run validation pipeline on an observation",
+    description="Evaluates all registered rules and stores results in validation_issues table.",
+)
+def validate_observation_endpoint(
+    observation_id: int,
+    db: SessionDep,
+    _current_user: CanRecordObservations,
+) -> ObservationValidationSummary:
+    """Execute the validation rule engine on an observation."""
+    try:
+        validation.validate_observation(db, observation_id, persist=True)
+        return validation.get_observation_validation_summary(db, observation_id)
+    except ObservationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/{observation_id}/issues",
+    response_model=ObservationValidationSummary,
+    summary="Get validation issues for an observation",
+    description="Accessible by all authenticated roles (admin, field_officer, verifier).",
+)
+def get_observation_issues_endpoint(
+    observation_id: int,
+    db: SessionDep,
+    _current_user: CurrentUserDep,
+) -> ObservationValidationSummary:
+    """Fetch stored validation issues and eligibility status for an observation."""
+    try:
+        return validation.get_observation_validation_summary(db, observation_id)
+    except ObservationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc

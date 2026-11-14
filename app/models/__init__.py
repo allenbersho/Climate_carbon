@@ -7,6 +7,7 @@ from app.models.land_parcel import LandParcel
 from app.models.observation import Observation, ObservationType
 from app.models.project import Project, ProjectStatus, ProjectType
 from app.models.user import User, UserRole
+from app.models.validation_issue import ValidationIssue, ValidationSeverity
 
 __all__ = [
     "Activity",
@@ -22,5 +23,7 @@ __all__ = [
     "ProjectType",
     "User",
     "UserRole",
+    "ValidationIssue",
+    "ValidationSeverity",
 ]
 
