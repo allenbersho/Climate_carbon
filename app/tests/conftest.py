@@ -34,6 +34,12 @@ def clean_database() -> Generator[None, None, None]:
     Base.metadata.drop_all(bind=test_engine)
 
 
+@pytest.fixture(autouse=True)
+def override_db_session_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure background tasks and services use the isolated test database session factory."""
+    monkeypatch.setattr("app.db.session.SessionLocal", TestingSessionLocal)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_test_file() -> Generator[None, None, None]:
     """Remove test.db from disk after all tests finish."""

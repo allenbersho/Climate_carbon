@@ -2,7 +2,17 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
 from app.models.user import UserRole
@@ -13,8 +23,9 @@ from app.schemas.farmer import (
     FarmerRead,
     FarmerUpdate,
 )
+from app.schemas.job import JobRead
 from app.schemas.land_parcel import LandParcelRead
-from app.services import farmer_service, parcel_service
+from app.services import farmer_service, job_service, parcel_service
 from app.services.parcel_service import FarmerNotFoundError
 
 router = APIRouter(prefix="/farmers", tags=["Farmers"])
@@ -66,6 +77,39 @@ async def bulk_import_farmers(
         )
     contents = await file.read()
     return farmer_service.bulk_import_farmers_from_csv(db, contents)
+
+
+@router.post(
+    "/bulk-import-async",
+    response_model=JobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Asynchronously bulk import farmers via background job",
+    description="Enqueue a background job to import farmers from a CSV file. Returns HTTP 202 with a job ticket ID.",
+)
+async def bulk_import_farmers_async(
+    db: SessionDep,
+    _current_user: CanManageFarmers,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(..., description="CSV file containing farmer records"),
+) -> JobRead:
+    """Queue an asynchronous CSV import job and return immediately with HTTP 202 Accepted."""
+    if file.filename and not file.filename.lower().endswith((".csv", ".txt")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a CSV file (.csv).",
+        )
+    contents = await file.read()
+    job = job_service.create_job(
+        db,
+        job_type="farmer_bulk_import",
+        payload={"filename": file.filename, "size_bytes": len(contents)},
+    )
+    background_tasks.add_task(
+        job_service.process_farmer_bulk_import_job,
+        job.id,
+        contents,
+    )
+    return JobRead.model_validate(job)
 
 
 @router.get(

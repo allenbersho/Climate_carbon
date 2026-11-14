@@ -35,6 +35,11 @@ from app.schemas.farmer import (
     FarmerRead,
     FarmerUpdate,
 )
+from app.schemas.job import (
+    JobBase,
+    JobListResponse,
+    JobRead,
+)
 from app.schemas.land_parcel import (
     LandParcelBase,
     LandParcelCreate,
@@ -108,6 +113,9 @@ __all__ = [
     "FarmerListResponse",
     "FarmerRead",
     "FarmerUpdate",
+    "JobBase",
+    "JobListResponse",
+    "JobRead",
     "LandParcelBase",
     "LandParcelCreate",
     "LandParcelListResponse",

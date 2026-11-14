@@ -9,6 +9,7 @@ from app.api.routes import (
     carbon,
     enrollments,
     farmers,
+    jobs,
     methodologies,
     monitoring,
     observations,
@@ -28,3 +29,4 @@ api_router.include_router(monitoring.router)
 api_router.include_router(methodologies.router)
 api_router.include_router(carbon.router)
 api_router.include_router(analytics.router)
+api_router.include_router(jobs.router)
