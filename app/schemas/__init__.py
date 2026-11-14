@@ -11,6 +11,8 @@ from app.schemas.analytics import (
     AnalyticsSummaryResponse,
     DistrictBreakdown,
     ProjectAnalyticsResponse,
+    TimeSeriesDataPoint,
+    TimeSeriesResponse,
 )
 from app.schemas.carbon import (
     CarbonEstimateListResponse,
@@ -125,6 +127,8 @@ __all__ = [
     "ProjectRead",
     "ProjectUpdate",
     "TimelineObservationItem",
+    "TimeSeriesDataPoint",
+    "TimeSeriesResponse",
     "Token",
     "TokenPayload",
     "UserBase",

@@ -1,5 +1,6 @@
 """Pydantic schemas for analytics summaries, project reporting, and district aggregations."""
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -38,3 +39,28 @@ class ProjectAnalyticsResponse(AnalyticsSummaryResponse):
     project_name: str = Field(..., description="Project name")
     project_type: str = Field(..., description="Project type (afforestation, regen_ag, biochar)")
     project_status: str = Field(..., description="Project lifecycle status (draft, active, closed)")
+
+
+class TimeSeriesDataPoint(BaseModel):
+    """A single observation/estimate event in a cumulative time-series curve."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    estimate_id: int = Field(..., description="Carbon estimate record ID")
+    enrollment_id: int = Field(..., description="Associated enrollment ID")
+    timestamp: datetime = Field(..., description="UTC timestamp of the estimation event")
+    co2e_tonnes: float = Field(..., description="Incremental gross CO2e sequestered in this calculation")
+    net_credits: float = Field(..., description="Incremental net credits issued in this calculation")
+    cumulative_co2e: float = Field(..., description="Cumulative gross CO2e sequestered up to this point in time")
+    cumulative_net_credits: float = Field(..., description="Cumulative net credits issued up to this point in time")
+
+
+class TimeSeriesResponse(BaseModel):
+    """Cumulative carbon time-series curve."""
+
+    project_id: int | None = Field(default=None, description="Optional filtered project ID")
+    total_points: int = Field(..., description="Total number of data points in the time series")
+    points: list[TimeSeriesDataPoint] = Field(
+        default_factory=list,
+        description="Chronologically sorted data points with running cumulative totals",
+    )

@@ -1,5 +1,8 @@
 """Analytics domain service executing pure SQL aggregations for portfolio and project reporting."""
 
+import csv
+from datetime import datetime
+import io
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -7,11 +10,14 @@ from app.models.carbon_estimate import CarbonEstimate
 from app.models.enrollment import Enrollment
 from app.models.farmer import Farmer
 from app.models.land_parcel import LandParcel
+from app.models.methodology import Methodology
 from app.models.project import Project
 from app.schemas.analytics import (
     AnalyticsSummaryResponse,
     DistrictBreakdown,
     ProjectAnalyticsResponse,
+    TimeSeriesDataPoint,
+    TimeSeriesResponse,
 )
 
 
@@ -147,3 +153,169 @@ def get_project_analytics(
         total_net_credits=summary.total_net_credits,
         by_district=summary.by_district,
     )
+
+
+def get_carbon_timeseries(
+    db: Session,
+    project_id: int | None = None,
+    from_date: datetime | None = None,
+    to_date: datetime | None = None,
+) -> TimeSeriesResponse:
+    """Compute cumulative carbon accumulation curves using an SQL window function.
+
+    Why: Task 7.2 requires tracking incremental and cumulative removals over time
+    using an SQL window function (SUM(...) OVER (ORDER BY computed_at)).
+    Inputs: db, optional project_id, optional from_date/to_date filters.
+    Outputs: TimeSeriesResponse with running cumulative CO2e and net credits.
+    """
+    if project_id is not None:
+        project = db.get(Project, project_id)
+        if not project:
+            raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+
+    # SQL Window Function: Running total ordered by computed_at, id
+    stmt = (
+        select(
+            CarbonEstimate.id.label("estimate_id"),
+            CarbonEstimate.enrollment_id.label("enrollment_id"),
+            CarbonEstimate.computed_at.label("timestamp"),
+            CarbonEstimate.co2e_tonnes.label("co2e_tonnes"),
+            CarbonEstimate.net_credits.label("net_credits"),
+            func.sum(CarbonEstimate.co2e_tonnes)
+            .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
+            .label("cumulative_co2e"),
+            func.sum(CarbonEstimate.net_credits)
+            .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
+            .label("cumulative_net_credits"),
+        )
+        .join(Enrollment, CarbonEstimate.enrollment_id == Enrollment.id)
+    )
+
+    if project_id is not None:
+        stmt = stmt.where(Enrollment.project_id == project_id)
+    if from_date is not None:
+        stmt = stmt.where(CarbonEstimate.computed_at >= from_date)
+    if to_date is not None:
+        stmt = stmt.where(CarbonEstimate.computed_at <= to_date)
+
+    stmt = stmt.order_by(CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc())
+    rows = db.execute(stmt).all()
+
+    points = [
+        TimeSeriesDataPoint(
+            estimate_id=row.estimate_id,
+            enrollment_id=row.enrollment_id,
+            timestamp=row.timestamp,
+            co2e_tonnes=round(float(row.co2e_tonnes), 4),
+            net_credits=round(float(row.net_credits), 4),
+            cumulative_co2e=round(float(row.cumulative_co2e), 4),
+            cumulative_net_credits=round(float(row.cumulative_net_credits), 4),
+        )
+        for row in rows
+    ]
+
+    return TimeSeriesResponse(
+        project_id=project_id,
+        total_points=len(points),
+        points=points,
+    )
+
+
+def generate_carbon_estimates_csv(
+    db: Session,
+    project_id: int | None = None,
+) -> str:
+    """Generate a comprehensive CSV audit export of all calculated carbon estimates.
+
+    Why: Task 7.2 requires a tabular CSV export for external verifiers and auditors.
+    """
+    if project_id is not None:
+        project = db.get(Project, project_id)
+        if not project:
+            raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+
+    stmt = (
+        select(
+            CarbonEstimate.id.label("estimate_id"),
+            CarbonEstimate.enrollment_id.label("enrollment_id"),
+            Project.id.label("project_id"),
+            Project.name.label("project_name"),
+            Project.type.label("project_type"),
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            Farmer.district.label("district"),
+            Farmer.state.label("state"),
+            LandParcel.id.label("parcel_id"),
+            LandParcel.area_acres.label("area_acres"),
+            Methodology.name.label("methodology_name"),
+            CarbonEstimate.methodology_version.label("methodology_version"),
+            CarbonEstimate.co2e_tonnes.label("co2e_tonnes"),
+            CarbonEstimate.uncertainty_pct.label("uncertainty_pct"),
+            CarbonEstimate.buffer_pct.label("buffer_pct"),
+            CarbonEstimate.net_credits.label("net_credits"),
+            CarbonEstimate.status.label("status"),
+            CarbonEstimate.computed_at.label("computed_at"),
+        )
+        .join(Enrollment, CarbonEstimate.enrollment_id == Enrollment.id)
+        .join(Project, Enrollment.project_id == Project.id)
+        .join(Farmer, Enrollment.farmer_id == Farmer.id)
+        .join(LandParcel, Enrollment.parcel_id == LandParcel.id)
+        .join(Methodology, CarbonEstimate.methodology_id == Methodology.id)
+    )
+
+    if project_id is not None:
+        stmt = stmt.where(Project.id == project_id)
+
+    stmt = stmt.order_by(CarbonEstimate.computed_at.desc(), CarbonEstimate.id.desc())
+    rows = db.execute(stmt).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header Row
+    writer.writerow([
+        "Estimate ID",
+        "Enrollment ID",
+        "Project ID",
+        "Project Name",
+        "Project Type",
+        "Farmer ID",
+        "Farmer Name",
+        "District",
+        "State",
+        "Parcel ID",
+        "Area (Acres)",
+        "Methodology",
+        "Version",
+        "Gross CO2e (Tonnes)",
+        "Uncertainty Ratio",
+        "Buffer Ratio",
+        "Net Credits (Tonnes CO2e)",
+        "Status",
+        "Computed At (UTC)",
+    ])
+
+    for r in rows:
+        writer.writerow([
+            r.estimate_id,
+            r.enrollment_id,
+            r.project_id,
+            r.project_name,
+            r.project_type.value if hasattr(r.project_type, "value") else str(r.project_type),
+            r.farmer_id,
+            r.farmer_name,
+            r.district,
+            r.state,
+            r.parcel_id,
+            round(float(r.area_acres), 2),
+            r.methodology_name,
+            r.methodology_version,
+            round(float(r.co2e_tonnes), 4),
+            round(float(r.uncertainty_pct), 4),
+            round(float(r.buffer_pct), 4),
+            round(float(r.net_credits), 4),
+            r.status.value if hasattr(r.status, "value") else str(r.status),
+            r.computed_at.isoformat() if hasattr(r.computed_at, "isoformat") else str(r.computed_at),
+        ])
+
+    return output.getvalue()

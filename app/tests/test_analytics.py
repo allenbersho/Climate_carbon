@@ -287,3 +287,219 @@ def test_analytics_role_permissions(client: TestClient) -> None:
     # 2. Authenticated -> 200
     auth_res = client.get("/api/v1/analytics/summary", headers=admin_headers)
     assert auth_res.status_code == status.HTTP_200_OK
+
+
+def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db_session: Session) -> None:
+    """Verify SQL window function running cumulative sums and CSV audit export."""
+    import csv
+    import io
+
+    seed_default_methodologies(db_session)
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.ts@carbontrack.org", UserRole.FIELD_OFFICER)
+    verifier_headers = _create_user_and_login(client, "verifier.ts@carbontrack.org", UserRole.VERIFIER)
+
+    # 1. Create two projects
+    p1 = client.post(
+        "/api/v1/projects",
+        json={"name": "Tumkur Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()
+    p1_id = p1["id"]
+
+    p2 = client.post(
+        "/api/v1/projects",
+        json={"name": "Hassan Soil Initiative", "type": "regen_ag", "start_date": "2025-01-01"},
+        headers=admin_headers,
+    ).json()
+    p2_id = p2["id"]
+
+    # 2. Setup Farmer and 2 Enrollments in Project 1
+    f1_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Ramegowda", "district": "Tumkur", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    par1_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": f1_id, "area_acres": 12.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    par2_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": f1_id, "area_acres": 6.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    e1_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": p1_id, "parcel_id": par1_id, "farmer_id": f1_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    e2_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": p1_id, "parcel_id": par2_id, "farmer_id": f1_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    # Observations & Estimate for E1 (Afforestation)
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e1_id,
+            "type": "tree_count",
+            "values": {"count": 100, "avg_height_m": 1.0},
+            "observed_at": "2025-01-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e1_id,
+            "type": "tree_count",
+            "values": {"count": 400, "avg_height_m": 2.0},
+            "observed_at": "2025-06-01T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    )
+    est1 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e1_id}, headers=verifier_headers).json()
+
+    # Observations & Estimate for E2 (Afforestation)
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e2_id,
+            "type": "tree_count",
+            "values": {"count": 50, "avg_height_m": 1.0},
+            "observed_at": "2025-01-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e2_id,
+            "type": "tree_count",
+            "values": {"count": 250, "avg_height_m": 2.0},
+            "observed_at": "2025-06-01T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    )
+    est2 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e2_id}, headers=verifier_headers).json()
+
+    # 3. Setup Farmer and 1 Enrollment in Project 2 (Soil Carbon)
+    f2_id = client.post(
+        "/api/v1/farmers",
+        json={"name": "Ningamma", "district": "Hassan", "state": "Karnataka", "consent_given": True},
+        headers=officer_headers,
+    ).json()["id"]
+
+    par3_id = client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": f2_id, "area_acres": 8.0},
+        headers=officer_headers,
+    ).json()["id"]
+
+    e3_id = client.post(
+        "/api/v1/enrollments",
+        json={"project_id": p2_id, "parcel_id": par3_id, "farmer_id": f2_id, "status": "active"},
+        headers=officer_headers,
+    ).json()["id"]
+
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e3_id,
+            "type": "soil",
+            "values": {"soc_percent": 1.0, "bulk_density": 1.30, "depth_cm": 30.0},
+            "observed_at": "2025-01-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": e3_id,
+            "type": "soil",
+            "values": {"soc_percent": 1.5, "bulk_density": 1.25, "depth_cm": 30.0},
+            "observed_at": "2025-06-01T10:00:00Z",
+            "is_baseline": False,
+        },
+        headers=officer_headers,
+    )
+    est3 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e3_id}, headers=verifier_headers).json()
+
+    # -------------------------------------------------------------
+    # 4. Test Time Series Window Function (Portfolio-Wide)
+    # -------------------------------------------------------------
+    ts_res = client.get("/api/v1/analytics/timeseries", headers=officer_headers)
+    assert ts_res.status_code == status.HTTP_200_OK
+    ts_data = ts_res.json()
+    assert ts_data["total_points"] == 3
+    points = ts_data["points"]
+
+    # Verify cumulative totals match running sum calculated via SQL window function
+    running_co2e = 0.0
+    running_credits = 0.0
+    for pt in points:
+        running_co2e += pt["co2e_tonnes"]
+        running_credits += pt["net_credits"]
+        assert pt["cumulative_co2e"] == pytest.approx(running_co2e, abs=1e-3)
+        assert pt["cumulative_net_credits"] == pytest.approx(running_credits, abs=1e-3)
+
+    # -------------------------------------------------------------
+    # 5. Test Time Series Scoped to Project 1
+    # -------------------------------------------------------------
+    p1_ts_res = client.get(f"/api/v1/analytics/timeseries?project_id={p1_id}", headers=officer_headers)
+    assert p1_ts_res.status_code == status.HTTP_200_OK
+    p1_ts = p1_ts_res.json()
+    assert p1_ts["project_id"] == p1_id
+    assert p1_ts["total_points"] == 2
+    for pt in p1_ts["points"]:
+        assert pt["enrollment_id"] in [e1_id, e2_id]
+
+    # -------------------------------------------------------------
+    # 6. Test CSV Export (Portfolio-wide)
+    # -------------------------------------------------------------
+    csv_res = client.get("/api/v1/analytics/export/csv", headers=verifier_headers)
+    assert csv_res.status_code == status.HTTP_200_OK
+    assert "text/csv" in csv_res.headers["content-type"]
+    assert 'attachment; filename="carbon_estimates_portfolio.csv"' in csv_res.headers["content-disposition"]
+
+    reader = list(csv.reader(io.StringIO(csv_res.text)))
+    assert len(reader) == 4  # Header + 3 data rows
+    headers = reader[0]
+    assert headers[0] == "Estimate ID"
+    assert "Gross CO2e (Tonnes)" in headers
+    assert "Net Credits (Tonnes CO2e)" in headers
+    assert "Methodology" in headers
+
+    # -------------------------------------------------------------
+    # 7. Test CSV Export Scoped to Project 2
+    # -------------------------------------------------------------
+    p2_csv_res = client.get(f"/api/v1/analytics/export/csv?project_id={p2_id}", headers=verifier_headers)
+    assert p2_csv_res.status_code == status.HTTP_200_OK
+    assert f'attachment; filename="carbon_estimates_project_{p2_id}.csv"' in p2_csv_res.headers["content-disposition"]
+    p2_reader = list(csv.reader(io.StringIO(p2_csv_res.text)))
+    assert len(p2_reader) == 2  # Header + 1 row
+    assert p2_reader[1][2] == str(p2_id)  # Project ID column
+
+
+def test_timeseries_and_csv_project_not_found_404(client: TestClient) -> None:
+    """Verify 404 response when querying timeseries or CSV for non-existent project."""
+    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+
+    ts_res = client.get("/api/v1/analytics/timeseries?project_id=999999", headers=admin_headers)
+    assert ts_res.status_code == status.HTTP_404_NOT_FOUND
+
+    csv_res = client.get("/api/v1/analytics/export/csv?project_id=999999", headers=admin_headers)
+    assert csv_res.status_code == status.HTTP_404_NOT_FOUND
