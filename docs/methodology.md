@@ -39,3 +39,36 @@ CarbonTrack runs automated validation strategies on all monitoring observations 
 | `future_date_check` | `error` | $\text{observed\_at} \le \text{now}$ | **Data Integrity**: Observations cannot be timestamped in the future. |
 | `implausible_trees_per_acre_check` | `error` | $\le 2500\text{ trees/acre}$ | **ASSUMPTION**: Standard afforestation planting density is $400 - 1200\text{ stems/acre}$. Densities $> 2500\text{ stems/acre}$ exceed biological canopy capacity for standing trees and indicate data entry errors. |
 
+## 4. Versioned Methodologies & Stored Parameters (Phase 6)
+
+Per PROJECT_SPEC.md Section 7, all calculation parameters live in the `methodologies` database table and are versioned. Calculators and estimation pipelines MUST load parameters dynamically from the database and NEVER hard-code numerical constants. Every parameter is documented below with its scientific basis or `ASSUMPTION` label:
+
+### Methodology 1: Afforestation v1
+
+* **Database Name:** `Afforestation`
+* **Version:** `v1`
+* **Status:** `is_active = True`
+
+| Parameter Key | Value | Unit | Scientific Basis / Assumption |
+|---|---|---|---|
+| `carbon_fraction` | `0.47` | dimensionless | **ASSUMPTION**: IPCC 2006 Guidelines for National Greenhouse Gas Inventories (Vol 4, Ch 4, Table 4.3). Default global average fraction of carbon in dry woody biomass (typically ranges 0.45 - 0.50). |
+| `co2_to_c_ratio` | `3.6667` | dimensionless | **Stoichiometric Constant**: Ratio of molecular weight of Carbon Dioxide ($\text{CO}_2 \approx 44.01\text{ g/mol}$) to atomic weight of Carbon ($\text{C} \approx 12.011\text{ g/mol}$). $\frac{44}{12} \approx 3.6667$. |
+| `default_biomass_per_tree_kg` | `50.0` | kg/tree | **ASSUMPTION**: Representative average dry aboveground and belowground woody biomass for standing young trees (5–7 years age) in tropical/subtropical agroforestry systems. |
+| `default_uncertainty_pct` | `0.10` | ratio (10%) | **ASSUMPTION**: 10% conservative deduction applied to gross $\text{CO}_2\text{e}$ removals to account for allometric model and height measurement error. |
+| `default_buffer_pct` | `0.15` | ratio (15%) | **ASSUMPTION**: 15% permanence buffer pool withholding deposited into an unissued insurance reserve against biotic disease, drought, or wildfire reversals. |
+
+### Methodology 2: Soil Carbon v1
+
+* **Database Name:** `Soil Carbon`
+* **Version:** `v1`
+* **Status:** `is_active = True`
+
+| Parameter Key | Value | Unit | Scientific Basis / Assumption |
+|---|---|---|---|
+| `co2_to_c_ratio` | `3.6667` | dimensionless | **Stoichiometric Constant**: Ratio of $\text{CO}_2$ to $\text{C}$ ($\frac{44}{12}$). |
+| `acres_to_hectares` | `0.404686` | ha/acre | **Exact Conversion Factor**: 1 international acre equals $0.40468564224$ hectares. Used to convert land parcel area into metric hectares for hectare-based soil stock formulas. |
+| `depth_cm` | `30.0` | cm | **ASSUMPTION**: Standard agronomic topsoil core sampling depth ($0 - 30\text{ cm}$) per FAO and IPCC guidelines. Represents the biologically active root zone impacted by regenerative agricultural practices. |
+| `default_uncertainty_pct` | `0.15` | ratio (15%) | **ASSUMPTION**: 15% deduction reflecting high spatial soil heterogeneity and lab bulk density measurement variance across field sampling cores. |
+| `default_buffer_pct` | `0.20` | ratio (20%) | **ASSUMPTION**: 20% permanence buffer pool withholding reflecting the vulnerability of soil organic matter to re-emission under conventional tillage or land-use changes. |
+
+

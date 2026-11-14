@@ -28,6 +28,13 @@ from app.schemas.land_parcel import (
     LandParcelRead,
     LandParcelUpdate,
 )
+from app.schemas.methodology import (
+    MethodologyBase,
+    MethodologyCreate,
+    MethodologyListResponse,
+    MethodologyRead,
+    MethodologyUpdate,
+)
 from app.schemas.monitoring import (
     EnrollmentMonitoringTimeline,
     TimelineObservationItem,
@@ -86,6 +93,11 @@ __all__ = [
     "LandParcelRead",
     "LandParcelUpdate",
     "LoginRequest",
+    "MethodologyBase",
+    "MethodologyCreate",
+    "MethodologyListResponse",
+    "MethodologyRead",
+    "MethodologyUpdate",
     "ObservationBase",
     "ObservationCorrectionCreate",
     "ObservationCreate",
