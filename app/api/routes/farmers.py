@@ -54,7 +54,7 @@ def create_farmer(
     _current_user: CanManageFarmers,
 ) -> FarmerRead:
     """Create a new farmer in the MRV system."""
-    new_farmer = farmer_service.create_farmer(db, farmer_in)
+    new_farmer = farmer_service.create_farmer(db, farmer_in, user=_current_user)
     return new_farmer
 
 
@@ -205,7 +205,7 @@ def update_farmer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Farmer with id {farmer_id} not found",
         )
-    updated_farmer = farmer_service.update_farmer(db, farmer=farmer, update_in=update_in)
+    updated_farmer = farmer_service.update_farmer(db, farmer=farmer, update_in=update_in, user=_current_user)
     return updated_farmer
 
 
@@ -227,5 +227,5 @@ def delete_farmer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Farmer with id {farmer_id} not found",
         )
-    farmer_service.soft_delete_farmer(db, farmer=farmer)
+    farmer_service.soft_delete_farmer(db, farmer=farmer, user=_current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

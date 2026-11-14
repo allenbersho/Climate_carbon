@@ -1,6 +1,7 @@
 """SQLAlchemy database models."""
 
 from app.models.activity import Activity, ActivityType
+from app.models.audit_log import AuditLog
 from app.models.carbon_estimate import CarbonEstimate, EstimateStatus
 from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.farmer import Farmer
@@ -15,6 +16,7 @@ from app.models.validation_issue import ValidationIssue, ValidationSeverity
 __all__ = [
     "Activity",
     "ActivityType",
+    "AuditLog",
     "CarbonEstimate",
     "Enrollment",
     "EnrollmentStatus",

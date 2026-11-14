@@ -29,7 +29,7 @@ def create_project(
     _admin_user: AdminUserDep,
 ) -> ProjectRead:
     """Create a new project record."""
-    return project_service.create_project(db, project_in)
+    return project_service.create_project(db, project_in, user=_admin_user)
 
 
 @router.get(
@@ -106,7 +106,12 @@ def update_project(
         )
 
     try:
-        updated_project = project_service.update_project(db, project=project, update_in=update_in)
+        updated_project = project_service.update_project(
+            db,
+            project=project,
+            update_in=update_in,
+            user=_admin_user,
+        )
     except InvalidStatusTransitionError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

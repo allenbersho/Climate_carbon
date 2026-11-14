@@ -4,7 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectStatus, ProjectType
+from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate
+from app.services.audit_service import record_audit_event
 
 
 class InvalidStatusTransitionError(ValueError):
@@ -19,11 +21,15 @@ ALLOWED_STATUS_TRANSITIONS: dict[ProjectStatus, set[ProjectStatus]] = {
 }
 
 
-def create_project(db: Session, project_in: ProjectCreate) -> Project:
+def create_project(
+    db: Session,
+    project_in: ProjectCreate,
+    user: User | None = None,
+) -> Project:
     """Create a new carbon project in DRAFT status.
 
     Why: Every carbon project starts in DRAFT while baseline studies and methodologies are assembled.
-    Inputs: db (SQLAlchemy session), project_in (validated ProjectCreate schema)
+    Inputs: db (SQLAlchemy session), project_in (validated ProjectCreate schema), user (optional acting User)
     Outputs: Newly persisted Project model instance.
     """
     project = Project(
@@ -34,6 +40,21 @@ def create_project(db: Session, project_in: ProjectCreate) -> Project:
         start_date=project_in.start_date,
     )
     db.add(project)
+    db.flush()
+    record_audit_event(
+        db,
+        user=user,
+        action="CREATE",
+        entity_type="project",
+        entity_id=project.id,
+        before_state=None,
+        after_state={
+            "name": project.name,
+            "type": project.type.value if hasattr(project.type, "value") else str(project.type),
+            "status": project.status.value if hasattr(project.status, "value") else str(project.status),
+        },
+        commit=False,
+    )
     db.commit()
     db.refresh(project)
     return project
@@ -90,14 +111,25 @@ def list_projects(
     return items, total
 
 
-def update_project(db: Session, project: Project, update_in: ProjectUpdate) -> Project:
+def update_project(
+    db: Session,
+    project: Project,
+    update_in: ProjectUpdate,
+    user: User | None = None,
+) -> Project:
     """Update project attributes and enforce unidirectional lifecycle transitions.
 
     Why: Enforces business rule: draft -> active -> closed only (no skipping back).
-    Inputs: db (Session), project (existing Project instance), update_in (ProjectUpdate schema)
+    Inputs: db (Session), project (existing Project instance), update_in (ProjectUpdate schema), user (acting User)
     Outputs: Updated Project instance.
     Raises: InvalidStatusTransitionError if illegal status change attempted.
     """
+    before_state = {
+        "name": project.name,
+        "status": project.status.value if hasattr(project.status, "value") else str(project.status),
+        "type": project.type.value if hasattr(project.type, "value") else str(project.type),
+    }
+
     update_data = update_in.model_dump(exclude_unset=True)
 
     # Validate state machine transition if status is being updated
@@ -116,6 +148,24 @@ def update_project(db: Session, project: Project, update_in: ProjectUpdate) -> P
         if isinstance(value, str):
             value = value.strip()
         setattr(project, field, value)
+
+    after_state = {
+        "name": project.name,
+        "status": project.status.value if hasattr(project.status, "value") else str(project.status),
+        "type": project.type.value if hasattr(project.type, "value") else str(project.type),
+    }
+
+    action = "STATE_CHANGE" if before_state["status"] != after_state["status"] else "UPDATE"
+    record_audit_event(
+        db,
+        user=user,
+        action=action,
+        entity_type="project",
+        entity_id=project.id,
+        before_state=before_state,
+        after_state=after_state,
+        commit=False,
+    )
 
     db.add(project)
     db.commit()

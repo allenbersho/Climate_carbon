@@ -8,19 +8,25 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.farmer import Farmer
+from app.models.user import User
 from app.schemas.farmer import (
     FarmerBulkImportResult,
     FarmerCreate,
     FarmerImportRowError,
     FarmerUpdate,
 )
+from app.services.audit_service import record_audit_event
 
 
-def create_farmer(db: Session, farmer_in: FarmerCreate) -> Farmer:
+def create_farmer(
+    db: Session,
+    farmer_in: FarmerCreate,
+    user: User | None = None,
+) -> Farmer:
     """Create a new farmer record with verified consent.
 
     Why: Enforces that every enrolled landholder has formal consent captured on creation.
-    Inputs: db (SQLAlchemy session), farmer_in (validated FarmerCreate schema)
+    Inputs: db (SQLAlchemy session), farmer_in (validated FarmerCreate schema), user (optional acting User)
     Outputs: Newly persisted Farmer model instance.
     """
     farmer = Farmer(
@@ -33,6 +39,22 @@ def create_farmer(db: Session, farmer_in: FarmerCreate) -> Farmer:
         is_deleted=False,
     )
     db.add(farmer)
+    db.flush()
+    record_audit_event(
+        db,
+        user=user,
+        action="CREATE",
+        entity_type="farmer",
+        entity_id=farmer.id,
+        before_state=None,
+        after_state={
+            "name": farmer.name,
+            "district": farmer.district,
+            "state": farmer.state,
+            "consent_given": farmer.consent_given,
+        },
+        commit=False,
+    )
     db.commit()
     db.refresh(farmer)
     return farmer
@@ -95,18 +117,52 @@ def list_farmers(
     return items, total
 
 
-def update_farmer(db: Session, farmer: Farmer, update_in: FarmerUpdate) -> Farmer:
+def update_farmer(
+    db: Session,
+    farmer: Farmer,
+    update_in: FarmerUpdate,
+    user: User | None = None,
+) -> Farmer:
     """Apply partial updates to an existing farmer record.
 
     Why: Allows updating contact info, location, or consent status without altering ID or history.
-    Inputs: db (Session), farmer (active Farmer instance), update_in (FarmerUpdate schema)
+    Inputs: db (Session), farmer (active Farmer instance), update_in (FarmerUpdate schema), user (acting User)
     Outputs: Updated Farmer model instance.
     """
+    before_state = {
+        "name": farmer.name,
+        "phone": farmer.phone,
+        "village": farmer.village,
+        "district": farmer.district,
+        "state": farmer.state,
+        "consent_given": farmer.consent_given,
+    }
+
     update_data = update_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip()
         setattr(farmer, field, value)
+
+    after_state = {
+        "name": farmer.name,
+        "phone": farmer.phone,
+        "village": farmer.village,
+        "district": farmer.district,
+        "state": farmer.state,
+        "consent_given": farmer.consent_given,
+    }
+
+    record_audit_event(
+        db,
+        user=user,
+        action="UPDATE",
+        entity_type="farmer",
+        entity_id=farmer.id,
+        before_state=before_state,
+        after_state=after_state,
+        commit=False,
+    )
 
     db.add(farmer)
     db.commit()
@@ -114,15 +170,33 @@ def update_farmer(db: Session, farmer: Farmer, update_in: FarmerUpdate) -> Farme
     return farmer
 
 
-def soft_delete_farmer(db: Session, farmer: Farmer) -> Farmer:
+def soft_delete_farmer(
+    db: Session,
+    farmer: Farmer,
+    user: User | None = None,
+) -> Farmer:
     """Mark a farmer record as soft-deleted without purging historical database rows.
 
     Why: Compliance with PROJECT_SPEC.md business rule #6: Farmers cannot be hard-deleted.
          Preserves audit trails and historical carbon baseline links.
-    Inputs: db (Session), farmer (active Farmer instance)
+    Inputs: db (Session), farmer (active Farmer instance), user (acting User)
     Outputs: Soft-deleted Farmer instance with is_deleted=True.
     """
+    before_state = {"is_deleted": farmer.is_deleted}
     farmer.is_deleted = True
+    after_state = {"is_deleted": True}
+
+    record_audit_event(
+        db,
+        user=user,
+        action="SOFT_DELETE",
+        entity_type="farmer",
+        entity_id=farmer.id,
+        before_state=before_state,
+        after_state=after_state,
+        commit=False,
+    )
+
     db.add(farmer)
     db.commit()
     db.refresh(farmer)

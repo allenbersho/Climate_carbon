@@ -14,6 +14,11 @@ from app.schemas.analytics import (
     TimeSeriesDataPoint,
     TimeSeriesResponse,
 )
+from app.schemas.audit_log import (
+    AuditLogBase,
+    AuditLogListResponse,
+    AuditLogRead,
+)
 from app.schemas.carbon import (
     CarbonEstimateListResponse,
     CarbonEstimateRead,
@@ -96,6 +101,9 @@ __all__ = [
     "ActivityRead",
     "ActivityUpdate",
     "AnalyticsSummaryResponse",
+    "AuditLogBase",
+    "AuditLogListResponse",
+    "AuditLogRead",
     "CarbonEstimateListResponse",
     "CarbonEstimateRead",
     "DistrictBreakdown",
