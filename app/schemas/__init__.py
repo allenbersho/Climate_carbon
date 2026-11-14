@@ -1,5 +1,12 @@
 """Pydantic request and response schemas."""
 
+from app.schemas.farmer import (
+    FarmerBase,
+    FarmerCreate,
+    FarmerListResponse,
+    FarmerRead,
+    FarmerUpdate,
+)
 from app.schemas.user import (
     LoginRequest,
     Token,
@@ -10,6 +17,11 @@ from app.schemas.user import (
 )
 
 __all__ = [
+    "FarmerBase",
+    "FarmerCreate",
+    "FarmerListResponse",
+    "FarmerRead",
+    "FarmerUpdate",
     "LoginRequest",
     "Token",
     "TokenPayload",
