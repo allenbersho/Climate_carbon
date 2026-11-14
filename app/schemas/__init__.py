@@ -28,6 +28,16 @@ from app.schemas.land_parcel import (
     LandParcelRead,
     LandParcelUpdate,
 )
+from app.schemas.observation import (
+    BiomassObservationValues,
+    ObservationBase,
+    ObservationCorrectionCreate,
+    ObservationCreate,
+    ObservationListResponse,
+    ObservationRead,
+    SoilObservationValues,
+    TreeCountObservationValues,
+)
 from app.schemas.project import (
     ProjectBase,
     ProjectCreate,
@@ -66,6 +76,11 @@ __all__ = [
     "LandParcelRead",
     "LandParcelUpdate",
     "LoginRequest",
+    "ObservationBase",
+    "ObservationCorrectionCreate",
+    "ObservationCreate",
+    "ObservationListResponse",
+    "ObservationRead",
     "ProjectBase",
     "ProjectCreate",
     "ProjectListResponse",

@@ -15,7 +15,8 @@ from app.schemas.enrollment import (
     EnrollmentRead,
     EnrollmentUpdate,
 )
-from app.services import activity_service, enrollment_service
+from app.schemas.observation import ObservationRead
+from app.services import activity_service, enrollment_service, observation_service
 from app.services.activity_service import EnrollmentNotFoundError as ActivityEnrollmentNotFoundError
 from app.services.enrollment_service import (
     DuplicateActiveEnrollmentError,
@@ -171,6 +172,32 @@ def get_enrollment_activities(
             to_date=to_date,
         )
     except ActivityEnrollmentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/{enrollment_id}/observations",
+    response_model=list[ObservationRead],
+    summary="Get all observations for an enrollment",
+    description="Accessible by all authenticated roles. Optionally filter active_only to exclude superseded rows.",
+)
+def get_enrollment_observations(
+    enrollment_id: int,
+    db: SessionDep,
+    _current_user: CurrentUserDep,
+    active_only: bool = Query(default=False, description="Exclude superseded observations"),
+) -> list[ObservationRead]:
+    """Retrieve all observations for a specific enrollment."""
+    try:
+        return observation_service.get_observations_by_enrollment(
+            db,
+            enrollment_id=enrollment_id,
+            active_only=active_only,
+        )
+    except observation_service.EnrollmentNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

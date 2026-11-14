@@ -4,6 +4,7 @@ from app.models.activity import Activity, ActivityType
 from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.farmer import Farmer
 from app.models.land_parcel import LandParcel
+from app.models.observation import Observation, ObservationType
 from app.models.project import Project, ProjectStatus, ProjectType
 from app.models.user import User, UserRole
 
@@ -14,6 +15,8 @@ __all__ = [
     "EnrollmentStatus",
     "Farmer",
     "LandParcel",
+    "Observation",
+    "ObservationType",
     "Project",
     "ProjectStatus",
     "ProjectType",
