@@ -28,6 +28,10 @@ from app.schemas.land_parcel import (
     LandParcelRead,
     LandParcelUpdate,
 )
+from app.schemas.monitoring import (
+    EnrollmentMonitoringTimeline,
+    TimelineObservationItem,
+)
 from app.schemas.observation import (
     BiomassObservationValues,
     ObservationBase,
@@ -63,6 +67,7 @@ __all__ = [
     "EnrollmentBase",
     "EnrollmentCreate",
     "EnrollmentListResponse",
+    "EnrollmentMonitoringTimeline",
     "EnrollmentRead",
     "EnrollmentUpdate",
     "FarmerBase",
@@ -86,6 +91,7 @@ __all__ = [
     "ProjectListResponse",
     "ProjectRead",
     "ProjectUpdate",
+    "TimelineObservationItem",
     "Token",
     "TokenPayload",
     "UserBase",

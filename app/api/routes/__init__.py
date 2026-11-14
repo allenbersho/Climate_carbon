@@ -7,6 +7,7 @@ from app.api.routes import (
     auth,
     enrollments,
     farmers,
+    monitoring,
     observations,
     parcels,
     projects,
@@ -20,3 +21,4 @@ api_router.include_router(projects.router)
 api_router.include_router(enrollments.router)
 api_router.include_router(activities.router)
 api_router.include_router(observations.router)
+api_router.include_router(monitoring.router)
