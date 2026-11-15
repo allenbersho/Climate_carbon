@@ -1,12 +1,14 @@
 """FastAPI main application entrypoint with security hardening and structured logging."""
 
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.deps import SessionDep
@@ -132,6 +134,24 @@ def health_check(db: SessionDep) -> dict[str, str]:
     }
 
 
+# Mount static assets for lightweight browser UI
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/dashboard", tags=["System"], response_class=FileResponse)
+def dashboard() -> FileResponse:
+    """Serve lightweight HTML/CSS visual MRV platform dashboard."""
+    html_path = STATIC_DIR / "index.html"
+    if not html_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dashboard UI not found.",
+        )
+    return FileResponse(html_path)
+
+
 @app.get("/", tags=["System"])
 def root() -> dict[str, str]:
     """Root welcome endpoint."""
@@ -139,6 +159,7 @@ def root() -> dict[str, str]:
         "project": settings.PROJECT_NAME,
         "docs": "/docs",
         "health": "/health",
+        "dashboard": "/dashboard",
     }
 
 
