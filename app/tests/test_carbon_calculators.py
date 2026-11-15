@@ -4,13 +4,14 @@ verifying mathematical formulas against exact hand-computed values.
 """
 
 import pytest
+
 from app.services.carbon.afforestation import AfforestationCalculator
 from app.services.carbon.soil_carbon import SoilCarbonCalculator
-
 
 # =====================================================================
 # Afforestation Calculator Unit Tests
 # =====================================================================
+
 
 def test_afforestation_calculator_hand_computed_values() -> None:
     """Verify Afforestation calculation against exact hand-computed baseline:
@@ -89,7 +90,9 @@ def test_afforestation_calculator_custom_overrides_and_defaults() -> None:
 def test_afforestation_calculator_zero_trees() -> None:
     """Verify zero trees yields zero gross and zero net credits without dividing by zero."""
     calc = AfforestationCalculator()
-    result = calc.calculate({"trees": 0}, {"carbon_fraction": 0.47, "co2_to_c_ratio": 44.0 / 12.0})
+    result = calc.calculate(
+        {"trees": 0}, {"carbon_fraction": 0.47, "co2_to_c_ratio": 44.0 / 12.0}
+    )
     assert result.co2e_gross_tonnes == 0.0
     assert result.net_credits == 0.0
 
@@ -119,6 +122,7 @@ def test_afforestation_calculator_input_validation_errors() -> None:
 # =====================================================================
 # Soil Carbon Calculator Unit Tests
 # =====================================================================
+
 
 def test_soil_carbon_calculator_hand_computed_values() -> None:
     """Verify Soil Carbon calculation against exact hand-computed baseline:
@@ -168,8 +172,12 @@ def test_soil_carbon_calculator_hand_computed_values() -> None:
     assert result.net_credits == pytest.approx(133.190256, abs=1e-5)
     assert result.uncertainty_pct == 0.15
     assert result.buffer_pct == 0.20
-    assert result.details["baseline_soc_stock_t_per_ha"] == pytest.approx(46.80, abs=1e-5)
-    assert result.details["current_soc_stock_t_per_ha"] == pytest.approx(60.00, abs=1e-5)
+    assert result.details["baseline_soc_stock_t_per_ha"] == pytest.approx(
+        46.80, abs=1e-5
+    )
+    assert result.details["current_soc_stock_t_per_ha"] == pytest.approx(
+        60.00, abs=1e-5
+    )
     assert result.details["delta_soc_t_per_ha"] == pytest.approx(13.20, abs=1e-5)
     assert result.details["area_ha"] == pytest.approx(4.04686, abs=1e-5)
     assert result.details["total_carbon_tonnes"] == pytest.approx(53.418552, abs=1e-5)
@@ -180,8 +188,16 @@ def test_soil_carbon_calculator_reversal_handling() -> None:
     calc = SoilCarbonCalculator()
     inputs = {
         "area_acres": 15.0,
-        "baseline": {"soc_percent": 2.0, "bulk_density": 1.25, "depth_cm": 30.0},  # 75.0 t C/ha
-        "current": {"soc_percent": 1.5, "bulk_density": 1.20, "depth_cm": 30.0},   # 54.0 t C/ha
+        "baseline": {
+            "soc_percent": 2.0,
+            "bulk_density": 1.25,
+            "depth_cm": 30.0,
+        },  # 75.0 t C/ha
+        "current": {
+            "soc_percent": 1.5,
+            "bulk_density": 1.20,
+            "depth_cm": 30.0,
+        },  # 54.0 t C/ha
     }
     parameters = {
         "acres_to_hectares": 0.404686,
@@ -239,12 +255,27 @@ def test_soil_carbon_calculator_input_validation_errors() -> None:
 
     # 3. Missing baseline
     with pytest.raises(ValueError, match="Missing baseline soil parameters"):
-        calc.calculate({"area_acres": 10.0, "current": {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0}}, params)
+        calc.calculate(
+            {
+                "area_acres": 10.0,
+                "current": {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0},
+            },
+            params,
+        )
 
     # 4. Non-positive baseline value
-    with pytest.raises(ValueError, match="Baseline soil parameters must be strictly positive"):
-        calc.calculate({
-            "area_acres": 10.0,
-            "baseline": {"soc_percent": -1.0, "bulk_density": 1.2, "depth_cm": 30.0},
-            "current": {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0},
-        }, params)
+    with pytest.raises(
+        ValueError, match="Baseline soil parameters must be strictly positive"
+    ):
+        calc.calculate(
+            {
+                "area_acres": 10.0,
+                "baseline": {
+                    "soc_percent": -1.0,
+                    "bulk_density": 1.2,
+                    "depth_cm": 30.0,
+                },
+                "current": {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0},
+            },
+            params,
+        )

@@ -1,6 +1,7 @@
 """Methodology domain services, calculation parameters management, and default seeds."""
 
 from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -161,7 +162,9 @@ def update_methodology(
     """
     methodology = get_methodology_by_id(db, methodology_id)
     if not methodology:
-        raise MethodologyNotFoundError(f"Methodology with ID {methodology_id} not found.")
+        raise MethodologyNotFoundError(
+            f"Methodology with ID {methodology_id} not found."
+        )
 
     if update_in.parameters is not None:
         methodology.parameters = update_in.parameters
@@ -183,7 +186,9 @@ def seed_default_methodologies(db: Session) -> list[Methodology]:
     """
     seeded: list[Methodology] = []
     for item in DEFAULT_METHODOLOGIES:
-        existing = get_methodology_by_name_and_version(db, name=item["name"], version=item["version"])
+        existing = get_methodology_by_name_and_version(
+            db, name=item["name"], version=item["version"]
+        )
         if not existing:
             created = Methodology(
                 name=item["name"],

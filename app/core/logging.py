@@ -1,9 +1,9 @@
 """Structured JSON logging configuration for CarbonTrack."""
 
-from datetime import datetime, timezone
 import json
 import logging
 import sys
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -12,7 +12,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -45,7 +45,9 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
             handler.setFormatter(JSONFormatter())
         else:
             handler.setFormatter(
-                logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+                logging.Formatter(
+                    "[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
+                )
             )
         root_logger.addHandler(handler)
     else:

@@ -3,6 +3,7 @@
 import csv
 import io
 from typing import Any
+
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -60,7 +61,9 @@ def create_farmer(
     return farmer
 
 
-def get_farmer_by_id(db: Session, farmer_id: int, include_deleted: bool = False) -> Farmer | None:
+def get_farmer_by_id(
+    db: Session, farmer_id: int, include_deleted: bool = False
+) -> Farmer | None:
     """Fetch a single farmer by ID, filtering out soft-deleted records by default.
 
     Why: Standard lookups must not expose deactivated/archived farmers unless requested.
@@ -91,7 +94,9 @@ def list_farmers(
 
     # Filter by exact district (case-insensitive)
     if district and district.strip():
-        base_query = base_query.where(func.lower(Farmer.district) == district.strip().lower())
+        base_query = base_query.where(
+            func.lower(Farmer.district) == district.strip().lower()
+        )
 
     # Filter by exact state (case-insensitive)
     if state and state.strip():
@@ -233,7 +238,9 @@ def bulk_import_farmers_from_csv(
         text = file_content
 
     if not text.strip():
-        return FarmerBulkImportResult(total_rows=0, imported_count=0, failed_count=0, errors=[])
+        return FarmerBulkImportResult(
+            total_rows=0, imported_count=0, failed_count=0, errors=[]
+        )
 
     stream = io.StringIO(text)
     reader = csv.reader(stream)
@@ -241,7 +248,9 @@ def bulk_import_farmers_from_csv(
     try:
         raw_header = next(reader)
     except StopIteration:
-        return FarmerBulkImportResult(total_rows=0, imported_count=0, failed_count=0, errors=[])
+        return FarmerBulkImportResult(
+            total_rows=0, imported_count=0, failed_count=0, errors=[]
+        )
 
     # Normalize header column names
     header_map: dict[int, str] = {}
@@ -287,8 +296,12 @@ def bulk_import_farmers_from_csv(
         cleaned_payload = {
             "name": name_val.strip() if name_val else "",
             "phone": phone_val.strip() if phone_val and phone_val.strip() else None,
-            "village": village_val.strip() if village_val and village_val.strip() else None,
-            "district": district_val.strip() if district_val and district_val.strip() else None,
+            "village": village_val.strip()
+            if village_val and village_val.strip()
+            else None,
+            "district": district_val.strip()
+            if district_val and district_val.strip()
+            else None,
             "state": state_val.strip() if state_val and state_val.strip() else None,
             "consent_given": _parse_boolean_consent(consent_raw),
         }

@@ -1,7 +1,8 @@
 """Shared pytest fixtures with an isolated test database."""
 
-from collections.abc import Generator
 import os
+from collections.abc import Generator
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -12,12 +13,16 @@ from app.core.rate_limit import api_rate_limiter, auth_rate_limiter
 from app.db.session import Base
 from app.main import app
 
-# Dedicated test database (separate from development database)
-TEST_DATABASE_URL = "sqlite:///./test.db"
+# Dedicated test database (defaults to sqlite for fast local testing, or postgresql via env in CI)
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
+
+connect_args = (
+    {"check_same_thread": False} if TEST_DATABASE_URL.startswith("sqlite") else {}
+)
 
 test_engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args=connect_args,
 )
 
 TestingSessionLocal = sessionmaker(
@@ -53,10 +58,10 @@ def reset_rate_limiters() -> Generator[None, None, None]:
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_test_file() -> Generator[None, None, None]:
-    """Remove test.db from disk after all tests finish."""
+    """Remove test.db from disk after all tests finish if running against local SQLite."""
     yield
     test_engine.dispose()
-    if os.path.exists("./test.db"):
+    if TEST_DATABASE_URL.startswith("sqlite") and os.path.exists("./test.db"):
         try:
             os.remove("./test.db")
         except OSError:
@@ -76,6 +81,7 @@ def db_session() -> Generator[Session, None, None]:
 @pytest.fixture
 def client(db_session: Session) -> Generator[TestClient, None, None]:
     """Provide a TestClient with get_db overridden to use the test database."""
+
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 

@@ -1,6 +1,7 @@
 """Monitoring domain service: timeline assembly, baseline matching, and delta calculations."""
 
 from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -49,12 +50,12 @@ def get_enrollment_monitoring_timeline(
     baselines_by_type: dict[ObservationType, Observation] = {
         b.type: b for b in active_baselines
     }
-    baseline_id_map: dict[str, int] = {
-        b.type.value: b.id for b in active_baselines
-    }
+    baseline_id_map: dict[str, int] = {b.type.value: b.id for b in active_baselines}
 
     # 2. Fetch timeline observations matching filters
-    timeline_query = select(Observation).where(Observation.enrollment_id == enrollment_id)
+    timeline_query = select(Observation).where(
+        Observation.enrollment_id == enrollment_id
+    )
 
     if not include_superseded:
         timeline_query = timeline_query.where(Observation.superseded_by.is_(None))
@@ -88,9 +89,7 @@ def get_enrollment_monitoring_timeline(
             if obs.id == baseline.id:
                 # Baseline observation itself has zero change relative to itself
                 change_from_baseline = {
-                    k: 0.0
-                    for k, v in obs.values.items()
-                    if isinstance(v, (int, float))
+                    k: 0.0 for k, v in obs.values.items() if isinstance(v, (int, float))
                 }
             else:
                 # Compute (observation - baseline) for all numerical metrics

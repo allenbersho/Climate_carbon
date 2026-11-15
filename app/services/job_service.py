@@ -1,7 +1,7 @@
 """Job service managing asynchronous task execution, lifecycles, and background processing."""
 
-from datetime import datetime, timezone
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -67,7 +67,11 @@ def list_jobs(
     total = db.execute(count_query).scalar_one() or 0
 
     offset = (page - 1) * page_size
-    paged_query = query.order_by(Job.created_at.desc(), Job.id.desc()).offset(offset).limit(page_size)
+    paged_query = (
+        query.order_by(Job.created_at.desc(), Job.id.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
     items = list(db.execute(paged_query).scalars().all())
 
     return items, total
@@ -89,7 +93,7 @@ def process_farmer_bulk_import_job(job_id: int, file_content: bytes) -> None:
 
         # Transition status to PROCESSING
         job.status = JobStatus.PROCESSING
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
         db.commit()
 
         try:
@@ -98,7 +102,7 @@ def process_farmer_bulk_import_job(job_id: int, file_content: bytes) -> None:
 
             # Mark as COMPLETED with output payload
             job.status = JobStatus.COMPLETED
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             job.result = import_result.model_dump()
             db.commit()
             logger.info(
@@ -111,7 +115,7 @@ def process_farmer_bulk_import_job(job_id: int, file_content: bytes) -> None:
             job = db.get(Job, job_id)
             if job:
                 job.status = JobStatus.FAILED
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
                 job.error_message = str(exc)
                 db.commit()
             logger.exception(f"Job {job_id} failed with error: {exc}")

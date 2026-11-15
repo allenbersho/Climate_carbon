@@ -1,6 +1,7 @@
 """Pydantic schemas for Project entities."""
 
 from datetime import date, datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.project import ProjectStatus, ProjectType
@@ -10,9 +11,16 @@ class ProjectBase(BaseModel):
     """Shared baseline properties for a project."""
 
     name: str = Field(..., min_length=2, max_length=255, description="Project name")
-    type: ProjectType = Field(..., description="Carbon removal project type (afforestation, regen_ag, biochar)")
-    methodology_id: int | None = Field(default=None, description="Associated methodology ID")
-    start_date: date | None = Field(default=None, description="Official project start date")
+    type: ProjectType = Field(
+        ...,
+        description="Carbon removal project type (afforestation, regen_ag, biochar)",
+    )
+    methodology_id: int | None = Field(
+        default=None, description="Associated methodology ID"
+    )
+    start_date: date | None = Field(
+        default=None, description="Official project start date"
+    )
 
 
 class ProjectCreate(ProjectBase):

@@ -178,7 +178,9 @@ def list_farmers(
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     district: str | None = Query(default=None, description="Filter by district name"),
     state: str | None = Query(default=None, description="Filter by state / province"),
-    search: str | None = Query(default=None, description="Search farmer by name substring"),
+    search: str | None = Query(
+        default=None, description="Search farmer by name substring"
+    ),
 ) -> FarmerListResponse:
     """List farmers with pagination and filters."""
     items, total = farmer_service.list_farmers(
@@ -216,7 +218,9 @@ def update_farmer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Farmer with id {farmer_id} not found",
         )
-    updated_farmer = farmer_service.update_farmer(db, farmer=farmer, update_in=update_in, user=_current_user)
+    updated_farmer = farmer_service.update_farmer(
+        db, farmer=farmer, update_in=update_in, user=_current_user
+    )
     return updated_farmer
 
 

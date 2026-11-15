@@ -36,7 +36,9 @@ class LandParcel(Base):
         index=True,  # Foreign key index for high-speed join queries
     )
     area_acres: Mapped[float] = mapped_column(Float, nullable=False)
-    soil_type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    soil_type: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     crop: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

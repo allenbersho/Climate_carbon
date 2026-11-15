@@ -1,7 +1,7 @@
 """CLI script to seed default methodologies into the database."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Ensure repository root is on sys.path for direct CLI execution
 ROOT_DIR = Path(__file__).resolve().parent.parent

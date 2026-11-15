@@ -5,13 +5,16 @@ handling with messy CSVs, UTF-8 BOM decoding, and role-based access control.
 """
 
 import io
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -41,7 +44,9 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_bulk_import_messy_csv_partial_success(client: TestClient) -> None:
     """Verify that a messy CSV imports valid rows and reports failures without crashing."""
-    officer_headers = _create_user_and_login(client, "officer.import1@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.import1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Messy CSV fixture:
     # Row 1: Header
@@ -65,8 +70,16 @@ def test_bulk_import_messy_csv_partial_success(client: TestClient) -> None:
         "   \n"
     )
 
-    files = {"file": ("farmers_messy.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")}
-    response = client.post("/api/v1/farmers/bulk-import", files=files, headers=officer_headers)
+    files = {
+        "file": (
+            "farmers_messy.csv",
+            io.BytesIO(csv_content.encode("utf-8")),
+            "text/csv",
+        )
+    }
+    response = client.post(
+        "/api/v1/farmers/bulk-import", files=files, headers=officer_headers
+    )
 
     assert response.status_code == status.HTTP_200_OK
     result = response.json()
@@ -112,7 +125,9 @@ def test_bulk_import_messy_csv_partial_success(client: TestClient) -> None:
 
 def test_bulk_import_utf8_bom_and_alternative_headers(client: TestClient) -> None:
     """Verify that CSVs exported from Excel with UTF-8 BOM and aliased headers work cleanly."""
-    officer_headers = _create_user_and_login(client, "officer.import2@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.import2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Excel often adds a UTF-8 Byte Order Mark (\xef\xbb\xbf)
     csv_bytes = (
@@ -122,7 +137,9 @@ def test_bulk_import_utf8_bom_and_alternative_headers(client: TestClient) -> Non
     )
 
     files = {"file": ("excel_export.csv", io.BytesIO(csv_bytes), "text/csv")}
-    response = client.post("/api/v1/farmers/bulk-import", files=files, headers=officer_headers)
+    response = client.post(
+        "/api/v1/farmers/bulk-import", files=files, headers=officer_headers
+    )
 
     assert response.status_code == status.HTTP_200_OK
     result = response.json()
@@ -134,10 +151,14 @@ def test_bulk_import_utf8_bom_and_alternative_headers(client: TestClient) -> Non
 
 def test_bulk_import_empty_file(client: TestClient) -> None:
     """Verify that an empty CSV file returns 0 counts without error."""
-    officer_headers = _create_user_and_login(client, "officer.import3@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.import3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     files = {"file": ("empty.csv", io.BytesIO(b""), "text/csv")}
-    response = client.post("/api/v1/farmers/bulk-import", files=files, headers=officer_headers)
+    response = client.post(
+        "/api/v1/farmers/bulk-import", files=files, headers=officer_headers
+    )
 
     assert response.status_code == status.HTTP_200_OK
     result = response.json()
@@ -149,10 +170,16 @@ def test_bulk_import_empty_file(client: TestClient) -> None:
 
 def test_bulk_import_invalid_file_extension(client: TestClient) -> None:
     """Verify 400 Bad Request when attempting to upload a non-CSV file."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
-    files = {"file": ("malicious.exe", io.BytesIO(b"not a csv"), "application/octet-stream")}
-    response = client.post("/api/v1/farmers/bulk-import", files=files, headers=admin_headers)
+    files = {
+        "file": ("malicious.exe", io.BytesIO(b"not a csv"), "application/octet-stream")
+    }
+    response = client.post(
+        "/api/v1/farmers/bulk-import", files=files, headers=admin_headers
+    )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "CSV" in response.json()["error"]["message"]
@@ -160,18 +187,29 @@ def test_bulk_import_invalid_file_extension(client: TestClient) -> None:
 
 def test_bulk_import_role_permissions(client: TestClient) -> None:
     """Verify unauthenticated (401), verifier (403), and field officer / admin (200)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    verifier_headers = _create_user_and_login(client, "verifier.import@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.import@carbontrack.org", UserRole.VERIFIER
+    )
 
     csv_data = "Name,Consent\nChannappa,true\n"
     files = {"file": ("valid.csv", io.BytesIO(csv_data.encode("utf-8")), "text/csv")}
 
     # 1. Unauthenticated -> 401
-    unauth = client.post("/api/v1/farmers/bulk-import", files={"file": ("test.csv", io.BytesIO(csv_data.encode("utf-8")), "text/csv")})
+    unauth = client.post(
+        "/api/v1/farmers/bulk-import",
+        files={"file": ("test.csv", io.BytesIO(csv_data.encode("utf-8")), "text/csv")},
+    )
     assert unauth.status_code == status.HTTP_401_UNAUTHORIZED
 
     # 2. Verifier role -> 403 Forbidden (verifiers cannot create/import farmers)
-    verif = client.post("/api/v1/farmers/bulk-import", files={"file": ("test.csv", io.BytesIO(csv_data.encode("utf-8")), "text/csv")}, headers=verifier_headers)
+    verif = client.post(
+        "/api/v1/farmers/bulk-import",
+        files={"file": ("test.csv", io.BytesIO(csv_data.encode("utf-8")), "text/csv")},
+        headers=verifier_headers,
+    )
     assert verif.status_code == status.HTTP_403_FORBIDDEN
 
     # 3. Admin -> 200 OK
@@ -182,7 +220,11 @@ def test_bulk_import_role_permissions(client: TestClient) -> None:
 
 def test_bulk_import_edge_cases_and_parsers(db_session) -> None:
     """Verify internal CSV parsing edge cases, blank lines, Latin-1 encodings, and boolean parsing."""
-    from app.services.farmer_service import _parse_boolean_consent, bulk_import_farmers_from_csv, list_farmers
+    from app.services.farmer_service import (
+        _parse_boolean_consent,
+        bulk_import_farmers_from_csv,
+        list_farmers,
+    )
 
     # 1. Test _parse_boolean_consent
     assert _parse_boolean_consent(None) is False
@@ -197,7 +239,9 @@ def test_bulk_import_edge_cases_and_parsers(db_session) -> None:
     assert res_empty.imported_count == 0
 
     # 3. Test empty header only
-    res_hdr_only = bulk_import_farmers_from_csv(db_session, file_content="Name,Consent\n")
+    res_hdr_only = bulk_import_farmers_from_csv(
+        db_session, file_content="Name,Consent\n"
+    )
     assert res_hdr_only.total_rows == 0
 
     # 4. Test Latin-1 encoding fallback with row containing fewer columns than header
@@ -210,4 +254,3 @@ def test_bulk_import_edge_cases_and_parsers(db_session) -> None:
     farmers, total = list_farmers(db_session, state="Karnataka")
     assert isinstance(farmers, list)
     assert total >= 0
-

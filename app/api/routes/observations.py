@@ -121,7 +121,9 @@ def get_observation(
     _current_user: CurrentUserDep,
 ) -> ObservationRead:
     """Fetch observation details and superseding lineage by primary key."""
-    observation = observation_service.get_observation_by_id(db, observation_id=observation_id)
+    observation = observation_service.get_observation_by_id(
+        db, observation_id=observation_id
+    )
     if not observation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -141,19 +143,27 @@ def list_observations(
     _current_user: CurrentUserDep,
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    enrollment_id: int | None = Query(default=None, description="Filter by enrollment ID"),
+    enrollment_id: int | None = Query(
+        default=None, description="Filter by enrollment ID"
+    ),
     observation_type: ObservationType | None = Query(
         default=None,
         alias="type",
         description="Filter by observation type (soil, tree_count, biomass)",
     ),
-    is_baseline: bool | None = Query(default=None, description="Filter by baseline flag"),
+    is_baseline: bool | None = Query(
+        default=None, description="Filter by baseline flag"
+    ),
     active_only: bool = Query(
         default=False,
         description="If true, returns only active (non-superseded) observations",
     ),
-    from_date: datetime | None = Query(default=None, description="Start timestamp (ISO-8601)"),
-    to_date: datetime | None = Query(default=None, description="End timestamp (ISO-8601)"),
+    from_date: datetime | None = Query(
+        default=None, description="Start timestamp (ISO-8601)"
+    ),
+    to_date: datetime | None = Query(
+        default=None, description="End timestamp (ISO-8601)"
+    ),
 ) -> ObservationListResponse:
     """List observations with pagination and filters."""
     items, total = observation_service.list_observations(

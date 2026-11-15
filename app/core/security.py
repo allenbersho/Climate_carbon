@@ -1,6 +1,6 @@
 """Security utilities: Argon2 password hashing and JWT token handling."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import argon2
@@ -40,7 +40,7 @@ def create_access_token(
     extra_claims: dict[str, Any] | None = None,
 ) -> str:
     """Create a signed JWT access token with an expiration timestamp."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if expires_delta:
         expire = now + expires_delta
     else:

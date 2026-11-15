@@ -1,6 +1,7 @@
 """Unit tests for every validation rule and integration tests for the validation pipeline."""
 
 from datetime import datetime, timedelta, timezone
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -47,15 +48,22 @@ def _make_dummy_observation(
 # Unit Tests for Every Individual Rule (Strategies)
 # =====================================================================
 
+
 def test_rule_soc_range() -> None:
     """Unit test for check_soc_range rule."""
     # 1. Valid SOC (1.5%) -> 0 issues
-    valid_obs = _make_dummy_observation(ObservationType.SOIL, {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0})
+    valid_obs = _make_dummy_observation(
+        ObservationType.SOIL,
+        {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 30.0},
+    )
     ctx_valid = ValidationContext(observation=valid_obs)
     assert check_soc_range(ctx_valid) == []
 
     # 2. Below 0.1% -> 1 error issue
-    low_obs = _make_dummy_observation(ObservationType.SOIL, {"soc_percent": 0.05, "bulk_density": 1.2, "depth_cm": 30.0})
+    low_obs = _make_dummy_observation(
+        ObservationType.SOIL,
+        {"soc_percent": 0.05, "bulk_density": 1.2, "depth_cm": 30.0},
+    )
     ctx_low = ValidationContext(observation=low_obs)
     low_issues = check_soc_range(ctx_low)
     assert len(low_issues) == 1
@@ -64,7 +72,10 @@ def test_rule_soc_range() -> None:
     assert "0.05%" in low_issues[0].message
 
     # 3. Above 10.0% -> 1 error issue
-    high_obs = _make_dummy_observation(ObservationType.SOIL, {"soc_percent": 14.2, "bulk_density": 1.2, "depth_cm": 30.0})
+    high_obs = _make_dummy_observation(
+        ObservationType.SOIL,
+        {"soc_percent": 14.2, "bulk_density": 1.2, "depth_cm": 30.0},
+    )
     ctx_high = ValidationContext(observation=high_obs)
     high_issues = check_soc_range(ctx_high)
     assert len(high_issues) == 1
@@ -72,7 +83,9 @@ def test_rule_soc_range() -> None:
     assert high_issues[0].severity == ValidationSeverity.ERROR
 
     # 4. Irrelevant observation type (tree_count) -> 0 issues
-    tree_obs = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 200, "avg_height_m": 2.0})
+    tree_obs = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 200, "avg_height_m": 2.0}
+    )
     assert check_soc_range(ValidationContext(observation=tree_obs)) == []
 
 
@@ -86,18 +99,28 @@ def test_rule_tree_count_drop() -> None:
     )
 
     # 1. Normal change (500 -> 450 = 10% drop, <= 30%) -> 0 issues
-    current_ok = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 450, "avg_height_m": 2.5}, observed_at=now)
+    current_ok = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 450, "avg_height_m": 2.5}, observed_at=now
+    )
     ctx_ok = ValidationContext(observation=current_ok, prior_observations=[prior_obs])
     assert check_tree_count_drop(ctx_ok) == []
 
     # 2. Tree count increased (500 -> 600) -> 0 issues
-    current_increase = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 600, "avg_height_m": 2.8}, observed_at=now)
-    ctx_increase = ValidationContext(observation=current_increase, prior_observations=[prior_obs])
+    current_increase = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 600, "avg_height_m": 2.8}, observed_at=now
+    )
+    ctx_increase = ValidationContext(
+        observation=current_increase, prior_observations=[prior_obs]
+    )
     assert check_tree_count_drop(ctx_increase) == []
 
     # 3. Critical drop (500 -> 250 = 50% drop, > 30%) -> 1 warning issue
-    current_drop = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 250, "avg_height_m": 2.5}, observed_at=now)
-    ctx_drop = ValidationContext(observation=current_drop, prior_observations=[prior_obs])
+    current_drop = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 250, "avg_height_m": 2.5}, observed_at=now
+    )
+    ctx_drop = ValidationContext(
+        observation=current_drop, prior_observations=[prior_obs]
+    )
     drop_issues = check_tree_count_drop(ctx_drop)
     assert len(drop_issues) == 1
     assert drop_issues[0].rule == "tree_count_drop_check"
@@ -111,15 +134,25 @@ def test_rule_tree_count_drop() -> None:
 
 def test_rule_missing_baseline() -> None:
     """Unit test for check_missing_baseline rule."""
-    baseline_obs = _make_dummy_observation(ObservationType.SOIL, {"soc_percent": 1.2, "bulk_density": 1.3, "depth_cm": 30.0}, is_baseline=True)
+    baseline_obs = _make_dummy_observation(
+        ObservationType.SOIL,
+        {"soc_percent": 1.2, "bulk_density": 1.3, "depth_cm": 30.0},
+        is_baseline=True,
+    )
 
     # 1. Baseline observation itself -> 0 issues (even if active_baseline is None in context)
     ctx_baseline = ValidationContext(observation=baseline_obs, active_baseline=None)
     assert check_missing_baseline(ctx_baseline) == []
 
     # 2. Monitoring observation with active baseline present -> 0 issues
-    monitoring_obs = _make_dummy_observation(ObservationType.SOIL, {"soc_percent": 1.4, "bulk_density": 1.3, "depth_cm": 30.0}, is_baseline=False)
-    ctx_with_base = ValidationContext(observation=monitoring_obs, active_baseline=baseline_obs)
+    monitoring_obs = _make_dummy_observation(
+        ObservationType.SOIL,
+        {"soc_percent": 1.4, "bulk_density": 1.3, "depth_cm": 30.0},
+        is_baseline=False,
+    )
+    ctx_with_base = ValidationContext(
+        observation=monitoring_obs, active_baseline=baseline_obs
+    )
     assert check_missing_baseline(ctx_with_base) == []
 
     # 3. Monitoring observation with NO active baseline -> 1 error issue
@@ -158,13 +191,19 @@ def test_rule_implausible_trees_per_acre() -> None:
     parcel_1_acre = LandParcel(id=2, farmer_id=1, area_acres=1.0)
 
     # 1. Normal density: 10 acres, 4,000 trees = 400 trees/acre (<= 2500) -> 0 issues
-    obs_normal = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 4000, "avg_height_m": 3.0})
+    obs_normal = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 4000, "avg_height_m": 3.0}
+    )
     ctx_normal = ValidationContext(observation=obs_normal, parcel=parcel_10_acres)
     assert check_implausible_trees_per_acre(ctx_normal) == []
 
     # 2. Implausible density: 1 acre, 5,000 trees = 5000 trees/acre (> 2500) -> 1 error issue
-    obs_implausible = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 5000, "avg_height_m": 3.0})
-    ctx_implausible = ValidationContext(observation=obs_implausible, parcel=parcel_1_acre)
+    obs_implausible = _make_dummy_observation(
+        ObservationType.TREE_COUNT, {"count": 5000, "avg_height_m": 3.0}
+    )
+    ctx_implausible = ValidationContext(
+        observation=obs_implausible, parcel=parcel_1_acre
+    )
     density_issues = check_implausible_trees_per_acre(ctx_implausible)
     assert len(density_issues) == 1
     assert density_issues[0].rule == "implausible_trees_per_acre_check"
@@ -176,11 +215,14 @@ def test_rule_implausible_trees_per_acre() -> None:
 # Unit Test for the Pluggable Registry / Strategy Pattern
 # =====================================================================
 
+
 def test_pluggable_registry_pattern() -> None:
     """Verify that custom validation rules can be registered dynamically."""
     try:
         # Define a custom domain rule strategy
-        def custom_odd_tree_count_rule(context: ValidationContext) -> list[ValidationIssueItem]:
+        def custom_odd_tree_count_rule(
+            context: ValidationContext,
+        ) -> list[ValidationIssueItem]:
             if context.observation.type == ObservationType.TREE_COUNT:
                 count = context.observation.values.get("count", 0)
                 if count % 2 != 0:
@@ -198,7 +240,9 @@ def test_pluggable_registry_pattern() -> None:
         assert custom_odd_tree_count_rule in get_registered_rules()
 
         # Run context on odd tree count
-        odd_obs = _make_dummy_observation(ObservationType.TREE_COUNT, {"count": 301, "avg_height_m": 2.0})
+        odd_obs = _make_dummy_observation(
+            ObservationType.TREE_COUNT, {"count": 301, "avg_height_m": 2.0}
+        )
         ctx = ValidationContext(observation=odd_obs)
 
         # Check issues from all registered rules
@@ -215,7 +259,10 @@ def test_pluggable_registry_pattern() -> None:
 # Integration Tests with Database Persistence & API Endpoints
 # =====================================================================
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -243,15 +290,26 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
     return {"Authorization": f"Bearer {user_token}"}
 
 
-def test_validation_pipeline_database_persistence_and_summary(client: TestClient) -> None:
+def test_validation_pipeline_database_persistence_and_summary(
+    client: TestClient,
+) -> None:
     """Verify validation runs and persists issues to validation_issues table with summary."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.val1@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.val1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # 1. Setup entities: Farmer -> Parcel (2 acres) -> Project -> Enrollment
     farmer_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Mahadevappa", "district": "Mysuru", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Mahadevappa",
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     )
     farmer_id = farmer_res.json()["id"]
@@ -265,14 +323,23 @@ def test_validation_pipeline_database_persistence_and_summary(client: TestClient
 
     project_res = client.post(
         "/api/v1/projects",
-        json={"name": "Mysuru Afforestation", "type": ProjectType.AFFORESTATION.value, "start_date": "2025-01-01"},
+        json={
+            "name": "Mysuru Afforestation",
+            "type": ProjectType.AFFORESTATION.value,
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     )
     project_id = project_res.json()["id"]
 
     enrollment_res = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     )
     enrollment_id = enrollment_res.json()["id"]
@@ -295,7 +362,9 @@ def test_validation_pipeline_database_persistence_and_summary(client: TestClient
     obs_id = obs_res.json()["id"]
 
     # 3. Query GET /api/v1/observations/{id}/issues
-    issues_res = client.get(f"/api/v1/observations/{obs_id}/issues", headers=officer_headers)
+    issues_res = client.get(
+        f"/api/v1/observations/{obs_id}/issues", headers=officer_headers
+    )
     assert issues_res.status_code == status.HTTP_200_OK
     summary = issues_res.json()
     assert summary["observation_id"] == obs_id
@@ -306,20 +375,31 @@ def test_validation_pipeline_database_persistence_and_summary(client: TestClient
     assert "implausible_trees_per_acre_check" in rule_names
 
     # 4. Trigger explicit POST /api/v1/observations/{id}/validate
-    validate_res = client.post(f"/api/v1/observations/{obs_id}/validate", headers=officer_headers)
+    validate_res = client.post(
+        f"/api/v1/observations/{obs_id}/validate", headers=officer_headers
+    )
     assert validate_res.status_code == status.HTTP_200_OK
     assert validate_res.json()["is_valid"] is False
 
 
 def test_clean_observation_has_zero_issues(client: TestClient) -> None:
     """Verify clean observation reports is_valid=True and 0 errors."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.val2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.val2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Setup entities
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Siddappa", "district": "Mandya", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Siddappa",
+            "district": "Mandya",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -331,13 +411,22 @@ def test_clean_observation_has_zero_issues(client: TestClient) -> None:
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Mandya Soil Carbon", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Mandya Soil Carbon",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -356,7 +445,9 @@ def test_clean_observation_has_zero_issues(client: TestClient) -> None:
     obs_id = obs_res.json()["id"]
 
     # Check issues
-    summary_res = client.get(f"/api/v1/observations/{obs_id}/issues", headers=officer_headers)
+    summary_res = client.get(
+        f"/api/v1/observations/{obs_id}/issues", headers=officer_headers
+    )
     assert summary_res.status_code == status.HTTP_200_OK
     summary = summary_res.json()
     assert summary["is_valid"] is True
@@ -365,17 +456,28 @@ def test_clean_observation_has_zero_issues(client: TestClient) -> None:
     assert summary["issues"] == []
 
 
-def test_create_observation_returns_issues_and_exclusion_flag(client: TestClient) -> None:
+def test_create_observation_returns_issues_and_exclusion_flag(
+    client: TestClient,
+) -> None:
     """Task 5.2: Verify observation submission automatically runs validation, returns issues,
 
     and flags error-severity observations as excluded_from_estimation=True.
     """
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.auto1@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.auto1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Kallappa", "district": "Belagavi", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Kallappa",
+            "district": "Belagavi",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -387,13 +489,22 @@ def test_create_observation_returns_issues_and_exclusion_flag(client: TestClient
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Belagavi Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Belagavi Agroforestry",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -429,14 +540,25 @@ def test_create_observation_returns_issues_and_exclusion_flag(client: TestClient
     assert all(issue["severity"] == "error" for issue in data["issues"])
 
 
-def test_create_clean_observation_not_excluded_from_estimation(client: TestClient) -> None:
+def test_create_clean_observation_not_excluded_from_estimation(
+    client: TestClient,
+) -> None:
     """Task 5.2: Verify clean observation returns is_valid=True and excluded_from_estimation=False."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.auto2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.auto2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Basavaraj", "district": "Dharwad", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Basavaraj",
+            "district": "Dharwad",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -448,13 +570,22 @@ def test_create_clean_observation_not_excluded_from_estimation(client: TestClien
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Dharwad Soil Carbon", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Dharwad Soil Carbon",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -478,14 +609,25 @@ def test_create_clean_observation_not_excluded_from_estimation(client: TestClien
     assert data["issues"] == []
 
 
-def test_supersede_observation_runs_validation_and_returns_issues(client: TestClient) -> None:
+def test_supersede_observation_runs_validation_and_returns_issues(
+    client: TestClient,
+) -> None:
     """Task 5.2: Verify append-only corrections via supersede automatically validate and return issues."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.auto3@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.auto3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Ningappa", "district": "Haveri", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Ningappa",
+            "district": "Haveri",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -497,13 +639,22 @@ def test_supersede_observation_runs_validation_and_returns_issues(client: TestCl
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Haveri Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Haveri Agroforestry",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -542,7 +693,7 @@ def test_supersede_observation_runs_validation_and_returns_issues(client: TestCl
 
     # 3. Supersede with corrected values: now count is 950 (5% drop, fully plausible)
     sup_res = client.post(
-        "/api/v1/observations/{}/supersede".format(obs_id),
+        f"/api/v1/observations/{obs_id}/supersede",
         json={
             "values": {"count": 950, "avg_height_m": 2.6},
             "observed_at": "2025-04-10T10:00:00Z",
@@ -558,12 +709,21 @@ def test_supersede_observation_runs_validation_and_returns_issues(client: TestCl
 
 def test_get_observation_issues_endpoint_severity_filter(client: TestClient) -> None:
     """Task 5.2: Verify GET /api/v1/observations/{id}/issues and severity query filtering."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.auto4@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.auto4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Mallikarjun", "district": "Bagalkot", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Mallikarjun",
+            "district": "Bagalkot",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -575,13 +735,22 @@ def test_get_observation_issues_endpoint_severity_filter(client: TestClient) -> 
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Bagalkot Trees", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Bagalkot Trees",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -613,7 +782,9 @@ def test_get_observation_issues_endpoint_severity_filter(client: TestClient) -> 
     obs_id = obs["id"]
 
     # 1. GET issues without filter
-    all_issues_res = client.get(f"/api/v1/observations/{obs_id}/issues", headers=officer_headers)
+    all_issues_res = client.get(
+        f"/api/v1/observations/{obs_id}/issues", headers=officer_headers
+    )
     assert all_issues_res.status_code == status.HTTP_200_OK
     summary = all_issues_res.json()
     assert summary["observation_id"] == obs_id
@@ -623,12 +794,17 @@ def test_get_observation_issues_endpoint_severity_filter(client: TestClient) -> 
     assert len(summary["issues"]) == 1
 
     # 2. GET issues with severity=warning filter
-    warn_res = client.get(f"/api/v1/observations/{obs_id}/issues?severity=warning", headers=officer_headers)
+    warn_res = client.get(
+        f"/api/v1/observations/{obs_id}/issues?severity=warning",
+        headers=officer_headers,
+    )
     assert warn_res.status_code == status.HTTP_200_OK
     assert len(warn_res.json()["issues"]) == 1
     assert warn_res.json()["issues"][0]["severity"] == "warning"
 
     # 3. GET issues with severity=error filter
-    err_res = client.get(f"/api/v1/observations/{obs_id}/issues?severity=error", headers=officer_headers)
+    err_res = client.get(
+        f"/api/v1/observations/{obs_id}/issues?severity=error", headers=officer_headers
+    )
     assert err_res.status_code == status.HTTP_200_OK
     assert len(err_res.json()["issues"]) == 0

@@ -1,7 +1,7 @@
 """Enrollment database model linking Projects, LandParcels, and Farmers."""
 
-from datetime import date, datetime
 import enum
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -10,7 +10,6 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
-    String,
     Text,
     func,
 )

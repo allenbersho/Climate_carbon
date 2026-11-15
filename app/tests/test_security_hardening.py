@@ -4,6 +4,7 @@ import io
 import json
 import logging
 from unittest.mock import patch
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -14,7 +15,9 @@ from app.main import app
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -87,7 +90,9 @@ def test_cors_preflight_headers(client: TestClient) -> None:
 
 def test_standardized_validation_error_format_422(client: TestClient) -> None:
     """Verify that Pydantic validation errors return standard error structure with details."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # Missing required 'type' and invalid start_date format
     res = client.post(
@@ -152,20 +157,26 @@ def test_structured_json_logging_format() -> None:
 
 def test_max_upload_size_limit_enforcement(client: TestClient) -> None:
     """Verify that files exceeding the maximum allowed size are rejected with HTTP 413."""
-    officer_headers = _create_user_and_login(client, "officer.sec@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.sec@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Create dummy payload larger than allowed (simulate 11MB file with mocked setting)
     with patch.object(settings, "MAX_UPLOAD_SIZE_BYTES", 100):
         oversized_data = b"Name,Consent\n" + b"FarmerName,true\n" * 20
         files = {"file": ("massive.csv", io.BytesIO(oversized_data), "text/csv")}
 
-        res = client.post("/api/v1/farmers/bulk-import", files=files, headers=officer_headers)
+        res = client.post(
+            "/api/v1/farmers/bulk-import", files=files, headers=officer_headers
+        )
         assert res.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         assert res.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
         assert "upload limit" in res.json()["error"]["message"].lower()
 
 
-def test_dependency_injection_and_token_edge_cases(client: TestClient, db_session) -> None:
+def test_dependency_injection_and_token_edge_cases(
+    client: TestClient, db_session
+) -> None:
     """Verify get_db generator, inactive user token rejection, and get_current_user_optional edge cases."""
     from app.api.deps import get_current_user, get_current_user_optional, get_db
     from app.core.security import create_access_token
@@ -185,20 +196,30 @@ def test_dependency_injection_and_token_edge_cases(client: TestClient, db_sessio
     assert get_current_user_optional(token="invalid.jwt.token", db=db_session) is None
 
     # 3. get_current_user with token missing sub or nonexistent user
-    token_bad_sub = create_access_token(subject="999999", role=UserRole.FIELD_OFFICER.value)
-    from fastapi import HTTPException
+    token_bad_sub = create_access_token(
+        subject="999999", role=UserRole.FIELD_OFFICER.value
+    )
     import pytest
+    from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         get_current_user(token=token_bad_sub, db=db_session)
     assert exc_info.value.status_code == 401
 
     # 4. Inactive user token -> 403 Forbidden
-    inactive_user = User(email="inactive@example.com", hashed_password="x", role=UserRole.FIELD_OFFICER, is_active=False)
+    inactive_user = User(
+        email="inactive@example.com",
+        hashed_password="x",
+        role=UserRole.FIELD_OFFICER,
+        is_active=False,
+    )
     db_session.add(inactive_user)
     db_session.commit()
     db_session.refresh(inactive_user)
 
-    inactive_token = create_access_token(subject=str(inactive_user.id), role=UserRole.FIELD_OFFICER.value)
+    inactive_token = create_access_token(
+        subject=str(inactive_user.id), role=UserRole.FIELD_OFFICER.value
+    )
     with pytest.raises(HTTPException) as exc_403:
         get_current_user(token=inactive_token, db=db_session)
     assert exc_403.value.status_code == 403
@@ -215,6 +236,7 @@ def test_logging_extra_data_and_setup_modes() -> None:
         raise ValueError("Simulated log exception")
     except ValueError:
         import sys
+
         exc_info = sys.exc_info()
 
     record = logging.LogRecord(
@@ -241,6 +263,7 @@ def test_logging_extra_data_and_setup_modes() -> None:
 def test_model_repr_methods(db_session) -> None:
     """Verify string representations (__repr__) across domain models."""
     from datetime import date, datetime, timezone
+
     from app.models.activity import Activity, ActivityType
     from app.models.audit_log import AuditLog
     from app.models.carbon_estimate import CarbonEstimate, EstimateStatus
@@ -254,16 +277,63 @@ def test_model_repr_methods(db_session) -> None:
     from app.models.user import User
     from app.models.validation_issue import ValidationIssue, ValidationSeverity
 
-    assert "Activity" in repr(Activity(id=1, enrollment_id=1, type=ActivityType.PLANTING, activity_date=date(2026, 1, 1)))
-    assert "AuditLog" in repr(AuditLog(id=1, action="CREATE", entity_type="project", entity_id=1, user_email="admin@test.com"))
-    assert "CarbonEstimate" in repr(CarbonEstimate(id=1, enrollment_id=1, methodology_version="v1", net_credits=8.5, status=EstimateStatus.DRAFT))
-    assert "Enrollment" in repr(Enrollment(id=1, project_id=1, parcel_id=1, status=EnrollmentStatus.ACTIVE))
+    assert "Activity" in repr(
+        Activity(
+            id=1,
+            enrollment_id=1,
+            type=ActivityType.PLANTING,
+            activity_date=date(2026, 1, 1),
+        )
+    )
+    assert "AuditLog" in repr(
+        AuditLog(
+            id=1,
+            action="CREATE",
+            entity_type="project",
+            entity_id=1,
+            user_email="admin@test.com",
+        )
+    )
+    assert "CarbonEstimate" in repr(
+        CarbonEstimate(
+            id=1,
+            enrollment_id=1,
+            methodology_version="v1",
+            net_credits=8.5,
+            status=EstimateStatus.DRAFT,
+        )
+    )
+    assert "Enrollment" in repr(
+        Enrollment(id=1, project_id=1, parcel_id=1, status=EnrollmentStatus.ACTIVE)
+    )
     assert "Farmer" in repr(Farmer(id=1, name="Ramesh", state="Karnataka"))
     assert "Job" in repr(Job(id=1, job_type="bulk_import", status=JobStatus.COMPLETED))
     assert "LandParcel" in repr(LandParcel(id=1, farmer_id=1, area_acres=5.0))
     assert "Methodology" in repr(Methodology(id=1, name="Afforestation", version="v1"))
-    assert "Observation" in repr(Observation(id=1, type=ObservationType.TREE_COUNT, observed_at=datetime.now(timezone.utc), is_baseline=True))
-    assert "Project" in repr(Project(id=1, name="Project Alpha", type=ProjectType.AFFORESTATION, status=ProjectStatus.ACTIVE))
-    assert "User" in repr(User(id=1, email="test@test.com", role=UserRole.ADMIN, is_active=True))
-    assert "ValidationIssue" in repr(ValidationIssue(id=1, observation_id=1, rule="rule_soc_range", severity=ValidationSeverity.ERROR))
-
+    assert "Observation" in repr(
+        Observation(
+            id=1,
+            type=ObservationType.TREE_COUNT,
+            observed_at=datetime.now(timezone.utc),
+            is_baseline=True,
+        )
+    )
+    assert "Project" in repr(
+        Project(
+            id=1,
+            name="Project Alpha",
+            type=ProjectType.AFFORESTATION,
+            status=ProjectStatus.ACTIVE,
+        )
+    )
+    assert "User" in repr(
+        User(id=1, email="test@test.com", role=UserRole.ADMIN, is_active=True)
+    )
+    assert "ValidationIssue" in repr(
+        ValidationIssue(
+            id=1,
+            observation_id=1,
+            rule="rule_soc_range",
+            severity=ValidationSeverity.ERROR,
+        )
+    )

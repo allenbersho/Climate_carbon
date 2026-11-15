@@ -1,16 +1,16 @@
 """Carbon estimate database model storing calculated removals and audit snapshots."""
 
-from datetime import datetime
 import enum
-from typing import Any, TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     String,
     func,
 )

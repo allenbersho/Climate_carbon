@@ -1,6 +1,7 @@
 """Observation domain services, append-only superseding logic, and data verification."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -35,10 +36,14 @@ class InvalidObservationValuesError(ValueError):
 
 def _ensure_not_future(timestamp: datetime) -> None:
     """Validate that a timestamp is not in the future relative to UTC now."""
-    now = datetime.now(timezone.utc)
-    ts_utc = timestamp if timestamp.tzinfo is not None else timestamp.replace(tzinfo=timezone.utc)
+    now = datetime.now(UTC)
+    ts_utc = (
+        timestamp if timestamp.tzinfo is not None else timestamp.replace(tzinfo=UTC)
+    )
     if ts_utc > now:
-        raise FutureObservationDateError("Observation timestamp cannot be in the future.")
+        raise FutureObservationDateError(
+            "Observation timestamp cannot be in the future."
+        )
 
 
 def create_observation(
@@ -108,7 +113,9 @@ def supersede_observation(
     """
     old_observation = db.get(Observation, old_observation_id)
     if not old_observation:
-        raise ObservationNotFoundError(f"Observation with ID {old_observation_id} not found.")
+        raise ObservationNotFoundError(
+            f"Observation with ID {old_observation_id} not found."
+        )
 
     if old_observation.superseded_by is not None:
         raise ObservationAlreadySupersededError(

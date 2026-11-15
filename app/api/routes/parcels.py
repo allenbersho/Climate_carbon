@@ -78,9 +78,13 @@ def list_parcels(
     _current_user: CurrentUserDep,
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    farmer_id: int | None = Query(default=None, description="Filter by owning farmer ID"),
+    farmer_id: int | None = Query(
+        default=None, description="Filter by owning farmer ID"
+    ),
     crop: str | None = Query(default=None, description="Filter by crop name"),
-    soil_type: str | None = Query(default=None, description="Filter by soil classification"),
+    soil_type: str | None = Query(
+        default=None, description="Filter by soil classification"
+    ),
 ) -> LandParcelListResponse:
     """List parcels with pagination and filters."""
     items, total = parcel_service.list_parcels(

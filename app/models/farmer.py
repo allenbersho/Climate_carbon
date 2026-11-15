@@ -24,7 +24,9 @@ class Farmer(Base):
     district: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     state: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

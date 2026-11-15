@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -37,12 +39,18 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_audit_log_created_on_project_status_change(client: TestClient) -> None:
     """Verify that advancing project status creates an audit log with before and after state."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # 1. Create Project in draft status
     proj = client.post(
         "/api/v1/projects",
-        json={"name": "Kaveri Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Kaveri Agroforestry",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()
     proj_id = proj["id"]
@@ -65,7 +73,9 @@ def test_audit_log_created_on_project_status_change(client: TestClient) -> None:
     audit_data = audit_res.json()
     assert audit_data["total"] >= 2  # CREATE and STATE_CHANGE
 
-    state_changes = [log for log in audit_data["items"] if log["action"] == "STATE_CHANGE"]
+    state_changes = [
+        log for log in audit_data["items"] if log["action"] == "STATE_CHANGE"
+    ]
     assert len(state_changes) == 1
     log = state_changes[0]
 
@@ -78,13 +88,22 @@ def test_audit_log_created_on_project_status_change(client: TestClient) -> None:
 
 def test_audit_log_created_on_farmer_update_and_soft_delete(client: TestClient) -> None:
     """Verify that updating and soft-deleting a farmer records exact before/after diffs."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.audit@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.audit@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # 1. Create farmer as field officer
     farmer = client.post(
         "/api/v1/farmers",
-        json={"name": "Somanna", "district": "Mysuru", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Somanna",
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()
     farmer_id = farmer["id"]
@@ -128,7 +147,9 @@ def test_audit_log_created_on_farmer_update_and_soft_delete(client: TestClient) 
 
 def test_audit_logs_pagination_and_filtering(client: TestClient) -> None:
     """Verify filtering by action type, entity type, and pagination."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     res = client.get("/api/v1/audit-logs?page=1&page_size=10", headers=admin_headers)
     assert res.status_code == status.HTTP_200_OK
@@ -140,7 +161,9 @@ def test_audit_logs_pagination_and_filtering(client: TestClient) -> None:
 
 def test_get_audit_log_by_id_and_not_found(client: TestClient) -> None:
     """Verify single audit log retrieval and 404 behavior."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # 404 for non-existent log
     res_404 = client.get("/api/v1/audit-logs/999999", headers=admin_headers)
@@ -150,10 +173,16 @@ def test_get_audit_log_by_id_and_not_found(client: TestClient) -> None:
     # Create an event to query
     client.post(
         "/api/v1/projects",
-        json={"name": "Audit Test Proj", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Audit Test Proj",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     )
-    logs = client.get("/api/v1/audit-logs?page_size=1", headers=admin_headers).json()["items"]
+    logs = client.get("/api/v1/audit-logs?page_size=1", headers=admin_headers).json()[
+        "items"
+    ]
     assert len(logs) > 0
     valid_id = logs[0]["id"]
 
@@ -165,9 +194,15 @@ def test_get_audit_log_by_id_and_not_found(client: TestClient) -> None:
 
 def test_audit_logs_role_permissions(client: TestClient) -> None:
     """Verify unauthenticated (401), field officer (403), and verifier/admin (200)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    verifier_headers = _create_user_and_login(client, "verifier.audit@carbontrack.org", UserRole.VERIFIER)
-    officer_headers = _create_user_and_login(client, "officer.audit2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.audit@carbontrack.org", UserRole.VERIFIER
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.audit2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # 1. Unauthenticated -> 401
     unauth = client.get("/api/v1/audit-logs")
@@ -186,7 +221,9 @@ def test_audit_logs_role_permissions(client: TestClient) -> None:
     assert admin_res.status_code == status.HTTP_200_OK
 
 
-def test_audit_log_filters_and_direct_commit(client: TestClient, db_session: Session) -> None:
+def test_audit_log_filters_and_direct_commit(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify audit log filtering by user_id and action, and commit=True behavior."""
     from app.services import audit_service
 
@@ -204,5 +241,4 @@ def test_audit_log_filters_and_direct_commit(client: TestClient, db_session: Ses
     # Filter by action
     logs_act, total_act = audit_service.list_audit_logs(db_session, action="EXPORT")
     assert total_act >= 1
-    assert any(l.id == log.id for l in logs_act)
-
+    assert any(entry.id == log.id for entry in logs_act)

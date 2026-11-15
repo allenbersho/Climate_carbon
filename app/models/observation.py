@@ -1,16 +1,16 @@
 """Observation database model recording field measurements and monitoring data."""
 
-from datetime import datetime
 import enum
-from typing import Any, TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
-    JSON,
     func,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -109,13 +109,18 @@ class Observation(Base):
     @hybrid_property
     def excluded_from_estimation(self) -> bool:
         """True if any error-severity validation issue excludes this observation from carbon estimation."""
-        return any(issue.severity == ValidationSeverity.ERROR for issue in self.validation_issues)
+        return any(
+            issue.severity == ValidationSeverity.ERROR
+            for issue in self.validation_issues
+        )
 
     @excluded_from_estimation.expression
     def excluded_from_estimation(cls):
         from app.models.validation_issue import ValidationIssue
 
-        return cls.validation_issues.any(ValidationIssue.severity == ValidationSeverity.ERROR)
+        return cls.validation_issues.any(
+            ValidationIssue.severity == ValidationSeverity.ERROR
+        )
 
     @hybrid_property
     def is_valid(self) -> bool:

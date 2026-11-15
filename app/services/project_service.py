@@ -50,8 +50,12 @@ def create_project(
         before_state=None,
         after_state={
             "name": project.name,
-            "type": project.type.value if hasattr(project.type, "value") else str(project.type),
-            "status": project.status.value if hasattr(project.status, "value") else str(project.status),
+            "type": project.type.value
+            if hasattr(project.type, "value")
+            else str(project.type),
+            "status": project.status.value
+            if hasattr(project.status, "value")
+            else str(project.status),
         },
         commit=False,
     )
@@ -126,8 +130,12 @@ def update_project(
     """
     before_state = {
         "name": project.name,
-        "status": project.status.value if hasattr(project.status, "value") else str(project.status),
-        "type": project.type.value if hasattr(project.type, "value") else str(project.type),
+        "status": project.status.value
+        if hasattr(project.status, "value")
+        else str(project.status),
+        "type": project.type.value
+        if hasattr(project.type, "value")
+        else str(project.type),
     }
 
     update_data = update_in.model_dump(exclude_unset=True)
@@ -151,11 +159,17 @@ def update_project(
 
     after_state = {
         "name": project.name,
-        "status": project.status.value if hasattr(project.status, "value") else str(project.status),
-        "type": project.type.value if hasattr(project.type, "value") else str(project.type),
+        "status": project.status.value
+        if hasattr(project.status, "value")
+        else str(project.status),
+        "type": project.type.value
+        if hasattr(project.type, "value")
+        else str(project.type),
     }
 
-    action = "STATE_CHANGE" if before_state["status"] != after_state["status"] else "UPDATE"
+    action = (
+        "STATE_CHANGE" if before_state["status"] != after_state["status"] else "UPDATE"
+    )
     record_audit_event(
         db,
         user=user,

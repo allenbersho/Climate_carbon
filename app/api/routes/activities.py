@@ -89,7 +89,9 @@ def list_activities(
     _current_user: CurrentUserDep,
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    enrollment_id: int | None = Query(default=None, description="Filter by enrollment ID"),
+    enrollment_id: int | None = Query(
+        default=None, description="Filter by enrollment ID"
+    ),
     activity_type: ActivityType | None = Query(
         default=None,
         alias="type",

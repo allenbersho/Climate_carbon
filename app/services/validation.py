@@ -1,8 +1,9 @@
 """Automated validation pipeline implementing a pluggable rule engine via the Strategy/Registry pattern."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Callable
+from datetime import UTC, datetime
+
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -47,6 +48,7 @@ ValidationRule = Callable[[ValidationContext], list[ValidationIssueItem]]
 # =====================================================================
 # Individual Validation Rules (Strategies)
 # =====================================================================
+
 
 def check_soc_range(context: ValidationContext) -> list[ValidationIssueItem]:
     """Flag soil observations where SOC% is outside the biologically plausible 0.1% - 10.0% range."""
@@ -133,9 +135,11 @@ def check_missing_baseline(context: ValidationContext) -> list[ValidationIssueIt
 
 def check_future_date(context: ValidationContext) -> list[ValidationIssueItem]:
     """Flag observations whose observation timestamp is in the future."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     obs_time = context.observation.observed_at
-    obs_time_utc = obs_time if obs_time.tzinfo is not None else obs_time.replace(tzinfo=timezone.utc)
+    obs_time_utc = (
+        obs_time if obs_time.tzinfo is not None else obs_time.replace(tzinfo=UTC)
+    )
 
     if obs_time_utc > now:
         return [
@@ -148,7 +152,9 @@ def check_future_date(context: ValidationContext) -> list[ValidationIssueItem]:
     return []
 
 
-def check_implausible_trees_per_acre(context: ValidationContext) -> list[ValidationIssueItem]:
+def check_implausible_trees_per_acre(
+    context: ValidationContext,
+) -> list[ValidationIssueItem]:
     """Flag tree count observations where calculated density exceeds 2500 trees/acre."""
     if context.observation.type != ObservationType.TREE_COUNT:
         return []
@@ -209,7 +215,9 @@ def reset_rules_to_default() -> None:
     _RULE_REGISTRY = list(DEFAULT_RULES)
 
 
-def build_validation_context(db: Session, observation: Observation) -> ValidationContext:
+def build_validation_context(
+    db: Session, observation: Observation
+) -> ValidationContext:
     """Assemble all related entities and historical observations into a ValidationContext.
 
     Why: Rules require parcel acreage and prior observations to evaluate rates of change.
@@ -265,7 +273,9 @@ def validate_observation(
     """
     observation = db.get(Observation, observation_id)
     if not observation:
-        raise ObservationNotFoundError(f"Observation with ID {observation_id} not found.")
+        raise ObservationNotFoundError(
+            f"Observation with ID {observation_id} not found."
+        )
 
     context = build_validation_context(db, observation)
 
@@ -288,7 +298,9 @@ def validate_observation(
         ]
 
     # Clear prior issues for this observation to support clean re-runs
-    db.execute(delete(ValidationIssue).where(ValidationIssue.observation_id == observation_id))
+    db.execute(
+        delete(ValidationIssue).where(ValidationIssue.observation_id == observation_id)
+    )
 
     persisted_issues: list[ValidationIssue] = []
     for item in collected_issues:
@@ -319,7 +331,9 @@ def get_observation_validation_summary(
     """
     observation = db.get(Observation, observation_id)
     if not observation:
-        raise ObservationNotFoundError(f"Observation with ID {observation_id} not found.")
+        raise ObservationNotFoundError(
+            f"Observation with ID {observation_id} not found."
+        )
 
     statement = (
         select(ValidationIssue)
@@ -329,7 +343,9 @@ def get_observation_validation_summary(
     all_issues = list(db.execute(statement).scalars().all())
 
     error_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.ERROR)
-    warning_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.WARNING)
+    warning_count = sum(
+        1 for i in all_issues if i.severity == ValidationSeverity.WARNING
+    )
     info_count = sum(1 for i in all_issues if i.severity == ValidationSeverity.INFO)
     excluded_from_estimation = error_count > 0
     is_valid = error_count == 0

@@ -64,9 +64,15 @@ def list_projects(
     _current_user: CurrentUserDep,
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    status: ProjectStatus | None = Query(default=None, description="Filter by status (draft, active, closed)"),
-    type: ProjectType | None = Query(default=None, description="Filter by type (afforestation, regen_ag, biochar)"),
-    search: str | None = Query(default=None, description="Search project name substring"),
+    status: ProjectStatus | None = Query(
+        default=None, description="Filter by status (draft, active, closed)"
+    ),
+    type: ProjectType | None = Query(
+        default=None, description="Filter by type (afforestation, regen_ag, biochar)"
+    ),
+    search: str | None = Query(
+        default=None, description="Search project name substring"
+    ),
 ) -> ProjectListResponse:
     """List projects with pagination and filtering."""
     items, total = project_service.list_projects(

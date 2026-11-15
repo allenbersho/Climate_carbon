@@ -67,7 +67,9 @@ def list_audit_logs(
     query = select(AuditLog)
 
     if entity_type and entity_type.strip():
-        query = query.where(func.lower(AuditLog.entity_type) == entity_type.strip().lower())
+        query = query.where(
+            func.lower(AuditLog.entity_type) == entity_type.strip().lower()
+        )
     if entity_id is not None:
         query = query.where(AuditLog.entity_id == entity_id)
     if user_id is not None:
@@ -79,7 +81,11 @@ def list_audit_logs(
     total = db.execute(count_query).scalar_one() or 0
 
     offset = (page - 1) * page_size
-    paged_query = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(page_size)
+    paged_query = (
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
     items = list(db.execute(paged_query).scalars().all())
 
     return items, total

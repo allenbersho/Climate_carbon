@@ -1,8 +1,8 @@
 """Integration tests for Methodology models, parameter seeds, and REST API endpoints."""
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.user import UserRole
@@ -14,7 +14,9 @@ from app.services.methodology_service import (
 )
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -48,7 +50,9 @@ def test_seed_default_methodologies_idempotency(db_session: Session) -> None:
     seeded_1 = seed_default_methodologies(db_session)
     assert len(seeded_1) >= 2
 
-    afforestation = next((m for m in seeded_1 if m.name == "Afforestation" and m.version == "v1"), None)
+    afforestation = next(
+        (m for m in seeded_1 if m.name == "Afforestation" and m.version == "v1"), None
+    )
     assert afforestation is not None
     assert afforestation.is_active is True
     assert afforestation.parameters["carbon_fraction"] == 0.47
@@ -57,7 +61,9 @@ def test_seed_default_methodologies_idempotency(db_session: Session) -> None:
     assert afforestation.parameters["default_uncertainty_pct"] == 0.10
     assert afforestation.parameters["default_buffer_pct"] == 0.15
 
-    soil_carbon = next((m for m in seeded_1 if m.name == "Soil Carbon" and m.version == "v1"), None)
+    soil_carbon = next(
+        (m for m in seeded_1 if m.name == "Soil Carbon" and m.version == "v1"), None
+    )
     assert soil_carbon is not None
     assert soil_carbon.is_active is True
     assert soil_carbon.parameters["co2_to_c_ratio"] == 3.6667
@@ -89,8 +95,12 @@ def test_methodology_unique_constraint(db_session: Session) -> None:
 
 def test_create_methodology_endpoint_admin_only(client: TestClient) -> None:
     """Verify only admin can create new methodologies (401 unauthenticated, 403 field officer)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.meth@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.meth@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     payload = {
         "name": "Biochar",
@@ -108,11 +118,15 @@ def test_create_methodology_endpoint_admin_only(client: TestClient) -> None:
     assert unauth_res.status_code == status.HTTP_401_UNAUTHORIZED
 
     # 2. Field Officer -> 403
-    officer_res = client.post("/api/v1/methodologies", json=payload, headers=officer_headers)
+    officer_res = client.post(
+        "/api/v1/methodologies", json=payload, headers=officer_headers
+    )
     assert officer_res.status_code == status.HTTP_403_FORBIDDEN
 
     # 3. Admin -> 201 Created
-    admin_res = client.post("/api/v1/methodologies", json=payload, headers=admin_headers)
+    admin_res = client.post(
+        "/api/v1/methodologies", json=payload, headers=admin_headers
+    )
     assert admin_res.status_code == status.HTTP_201_CREATED
     data = admin_res.json()
     assert data["name"] == "Biochar"
@@ -124,7 +138,9 @@ def test_create_methodology_endpoint_admin_only(client: TestClient) -> None:
 
 def test_create_duplicate_methodology_endpoint_returns_409(client: TestClient) -> None:
     """Verify registering an existing methodology version returns 409 Conflict."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     payload = {
         "name": "Afforestation",
@@ -132,7 +148,9 @@ def test_create_duplicate_methodology_endpoint_returns_409(client: TestClient) -
         "parameters": {"carbon_fraction": 0.48},
         "is_active": True,
     }
-    first_res = client.post("/api/v1/methodologies", json=payload, headers=admin_headers)
+    first_res = client.post(
+        "/api/v1/methodologies", json=payload, headers=admin_headers
+    )
     assert first_res.status_code == status.HTTP_201_CREATED
 
     dup_res = client.post("/api/v1/methodologies", json=payload, headers=admin_headers)
@@ -141,17 +159,29 @@ def test_create_duplicate_methodology_endpoint_returns_409(client: TestClient) -
 
 def test_list_methodologies_pagination_and_active_filter(client: TestClient) -> None:
     """Verify paginated listing of methodologies with active filter."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # Seed default methodologies
     client.post(
         "/api/v1/methodologies",
-        json={"name": "Afforestation", "version": "v1", "parameters": {"carbon_fraction": 0.47}, "is_active": True},
+        json={
+            "name": "Afforestation",
+            "version": "v1",
+            "parameters": {"carbon_fraction": 0.47},
+            "is_active": True,
+        },
         headers=admin_headers,
     )
     client.post(
         "/api/v1/methodologies",
-        json={"name": "Legacy Afforestation", "version": "v0.9", "parameters": {}, "is_active": False},
+        json={
+            "name": "Legacy Afforestation",
+            "version": "v0.9",
+            "parameters": {},
+            "is_active": False,
+        },
         headers=admin_headers,
     )
 
@@ -164,13 +194,17 @@ def test_list_methodologies_pagination_and_active_filter(client: TestClient) -> 
     assert data["total"] >= 2
 
     # 2. Filter active_only
-    active_res = client.get("/api/v1/methodologies?is_active=true", headers=admin_headers)
+    active_res = client.get(
+        "/api/v1/methodologies?is_active=true", headers=admin_headers
+    )
     assert active_res.status_code == status.HTTP_200_OK
     active_data = active_res.json()
     assert all(item["is_active"] is True for item in active_data["items"])
 
     # 3. Filter inactive
-    inactive_res = client.get("/api/v1/methodologies?is_active=false", headers=admin_headers)
+    inactive_res = client.get(
+        "/api/v1/methodologies?is_active=false", headers=admin_headers
+    )
     assert inactive_res.status_code == status.HTTP_200_OK
     inactive_data = inactive_res.json()
     assert all(item["is_active"] is False for item in inactive_data["items"])
@@ -178,11 +212,18 @@ def test_list_methodologies_pagination_and_active_filter(client: TestClient) -> 
 
 def test_get_methodology_by_id_and_patch(client: TestClient) -> None:
     """Verify fetching methodology by ID and deactivating it via PATCH."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     create_res = client.post(
         "/api/v1/methodologies",
-        json={"name": "Experimental Method", "version": "v1", "parameters": {"factor": 1.5}, "is_active": True},
+        json={
+            "name": "Experimental Method",
+            "version": "v1",
+            "parameters": {"factor": 1.5},
+            "is_active": True,
+        },
         headers=admin_headers,
     )
     meth_id = create_res.json()["id"]

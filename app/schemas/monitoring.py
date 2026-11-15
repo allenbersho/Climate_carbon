@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.observation import ObservationType
@@ -14,10 +15,18 @@ class TimelineObservationItem(BaseModel):
 
     id: int = Field(..., description="Observation ID")
     type: ObservationType = Field(..., description="Observation measurement type")
-    observed_at: datetime = Field(..., description="Timestamp when measurement was recorded")
-    is_baseline: bool = Field(..., description="True if this is the pre-project baseline measurement")
-    is_superseded: bool = Field(..., description="True if this observation was replaced by a correction")
-    superseded_by: int | None = Field(default=None, description="ID of superseding observation if corrected")
+    observed_at: datetime = Field(
+        ..., description="Timestamp when measurement was recorded"
+    )
+    is_baseline: bool = Field(
+        ..., description="True if this is the pre-project baseline measurement"
+    )
+    is_superseded: bool = Field(
+        ..., description="True if this observation was replaced by a correction"
+    )
+    superseded_by: int | None = Field(
+        default=None, description="ID of superseding observation if corrected"
+    )
     values: dict[str, Any] = Field(..., description="Raw measurement values")
     baseline_id: int | None = Field(
         default=None,

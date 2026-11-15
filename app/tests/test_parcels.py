@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to register and login a user with a specific role, returning auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -34,11 +36,18 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
     return {"Authorization": f"Bearer {user_token}"}
 
 
-def _create_test_farmer(client: TestClient, headers: dict[str, str], name: str = "Farmer Test") -> int:
+def _create_test_farmer(
+    client: TestClient, headers: dict[str, str], name: str = "Farmer Test"
+) -> int:
     """Helper to create an active farmer and return their ID."""
     res = client.post(
         "/api/v1/farmers",
-        json={"name": name, "district": "Mysuru", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": name,
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=headers,
     )
     return res.json()["id"]
@@ -46,7 +55,9 @@ def _create_test_farmer(client: TestClient, headers: dict[str, str], name: str =
 
 def test_create_parcel_success(client: TestClient) -> None:
     """Verify field officer can create a land parcel linked to an active farmer."""
-    officer_headers = _create_user_and_login(client, "officer.parcel1@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id = _create_test_farmer(client, officer_headers, "Somaiah K")
 
     payload = {
@@ -67,7 +78,9 @@ def test_create_parcel_success(client: TestClient) -> None:
 
 def test_create_parcel_area_validation_fails(client: TestClient) -> None:
     """Verify creating a parcel with area_acres <= 0 is rejected with 422."""
-    officer_headers = _create_user_and_login(client, "officer.parcel2@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id = _create_test_farmer(client, officer_headers, "Bheema R")
 
     # Zero area rejected
@@ -89,7 +102,9 @@ def test_create_parcel_area_validation_fails(client: TestClient) -> None:
 
 def test_create_parcel_nonexistent_farmer_fails(client: TestClient) -> None:
     """Verify creating a parcel for a non-existent farmer returns 404."""
-    officer_headers = _create_user_and_login(client, "officer.parcel3@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     response = client.post(
         "/api/v1/parcels",
@@ -102,7 +117,9 @@ def test_create_parcel_nonexistent_farmer_fails(client: TestClient) -> None:
 
 def test_get_parcel_by_id(client: TestClient) -> None:
     """Verify fetching parcel by ID returns 200 OK, and missing parcel returns 404."""
-    officer_headers = _create_user_and_login(client, "officer.parcel4@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id = _create_test_farmer(client, officer_headers, "Chennaiah")
 
     create_res = client.post(
@@ -123,15 +140,31 @@ def test_get_parcel_by_id(client: TestClient) -> None:
 
 def test_get_farmer_parcels_nested_endpoint(client: TestClient) -> None:
     """Verify GET /api/v1/farmers/{id}/parcels returns all parcels owned by that farmer."""
-    officer_headers = _create_user_and_login(client, "officer.parcel5@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id = _create_test_farmer(client, officer_headers, "Laxmi Bai")
 
     # Create 3 parcels for this farmer
-    client.post("/api/v1/parcels", json={"farmer_id": farmer_id, "area_acres": 2.5, "crop": "Paddy"}, headers=officer_headers)
-    client.post("/api/v1/parcels", json={"farmer_id": farmer_id, "area_acres": 4.0, "crop": "Mustard"}, headers=officer_headers)
-    client.post("/api/v1/parcels", json={"farmer_id": farmer_id, "area_acres": 1.5, "crop": "Pulses"}, headers=officer_headers)
+    client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 2.5, "crop": "Paddy"},
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 4.0, "crop": "Mustard"},
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/parcels",
+        json={"farmer_id": farmer_id, "area_acres": 1.5, "crop": "Pulses"},
+        headers=officer_headers,
+    )
 
-    nested_res = client.get(f"/api/v1/farmers/{farmer_id}/parcels", headers=officer_headers)
+    nested_res = client.get(
+        f"/api/v1/farmers/{farmer_id}/parcels", headers=officer_headers
+    )
     assert nested_res.status_code == status.HTTP_200_OK
     parcels = nested_res.json()
     assert len(parcels) == 3
@@ -144,22 +177,55 @@ def test_get_farmer_parcels_nested_endpoint(client: TestClient) -> None:
 
 def test_list_parcels_pagination_and_filters(client: TestClient) -> None:
     """Verify paginated listing and filtering by farmer_id, crop, and soil_type."""
-    officer_headers = _create_user_and_login(client, "officer.parcel6@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel6@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer1 = _create_test_farmer(client, officer_headers, "Farmer 1")
     farmer2 = _create_test_farmer(client, officer_headers, "Farmer 2")
 
-    client.post("/api/v1/parcels", json={"farmer_id": farmer1, "area_acres": 10.0, "crop": "Coffee", "soil_type": "laterite"}, headers=officer_headers)
-    client.post("/api/v1/parcels", json={"farmer_id": farmer1, "area_acres": 5.0, "crop": "Pepper", "soil_type": "laterite"}, headers=officer_headers)
-    client.post("/api/v1/parcels", json={"farmer_id": farmer2, "area_acres": 20.0, "crop": "Coffee", "soil_type": "clay"}, headers=officer_headers)
+    client.post(
+        "/api/v1/parcels",
+        json={
+            "farmer_id": farmer1,
+            "area_acres": 10.0,
+            "crop": "Coffee",
+            "soil_type": "laterite",
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/parcels",
+        json={
+            "farmer_id": farmer1,
+            "area_acres": 5.0,
+            "crop": "Pepper",
+            "soil_type": "laterite",
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/parcels",
+        json={
+            "farmer_id": farmer2,
+            "area_acres": 20.0,
+            "crop": "Coffee",
+            "soil_type": "clay",
+        },
+        headers=officer_headers,
+    )
 
     # Pagination: page_size=2
-    paged_res = client.get("/api/v1/parcels?page=1&page_size=2", headers=officer_headers)
+    paged_res = client.get(
+        "/api/v1/parcels?page=1&page_size=2", headers=officer_headers
+    )
     assert paged_res.status_code == status.HTTP_200_OK
     assert paged_res.json()["total"] == 3
     assert len(paged_res.json()["items"]) == 2
 
     # Filter by farmer_id
-    farmer1_res = client.get(f"/api/v1/parcels?farmer_id={farmer1}", headers=officer_headers)
+    farmer1_res = client.get(
+        f"/api/v1/parcels?farmer_id={farmer1}", headers=officer_headers
+    )
     assert farmer1_res.status_code == status.HTTP_200_OK
     assert farmer1_res.json()["total"] == 2
 
@@ -171,8 +237,12 @@ def test_list_parcels_pagination_and_filters(client: TestClient) -> None:
 
 def test_update_and_delete_parcel(client: TestClient) -> None:
     """Verify partial updates by officer and deletion by administrator."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.parcel7@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.parcel7@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id = _create_test_farmer(client, admin_headers, "Kallappa")
 
     create_res = client.post(
@@ -197,14 +267,23 @@ def test_update_and_delete_parcel(client: TestClient) -> None:
     assert del_res.status_code == status.HTTP_204_NO_CONTENT
 
     # Verification: parcel is gone -> 404
-    assert client.get(f"/api/v1/parcels/{parcel_id}", headers=admin_headers).status_code == status.HTTP_404_NOT_FOUND
+    assert (
+        client.get(f"/api/v1/parcels/{parcel_id}", headers=admin_headers).status_code
+        == status.HTTP_404_NOT_FOUND
+    )
 
 
 def test_parcel_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Verifiers cannot write, Officers cannot delete."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac_p@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac_p@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac_p@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac_p@carbontrack.org", UserRole.VERIFIER
+    )
     farmer_id = _create_test_farmer(client, admin_headers, "Parvati Amma")
 
     # 1. Officer creates parcel -> 201
@@ -217,7 +296,10 @@ def test_parcel_role_permissions(client: TestClient) -> None:
     parcel_id = create_res.json()["id"]
 
     # 2. Verifier can read -> 200
-    assert client.get(f"/api/v1/parcels/{parcel_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(f"/api/v1/parcels/{parcel_id}", headers=verifier_headers).status_code
+        == status.HTTP_200_OK
+    )
 
     # 3. Verifier CANNOT create parcel -> 403 Forbidden
     ver_create = client.post(

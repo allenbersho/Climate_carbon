@@ -1,6 +1,7 @@
 """Analytics and reporting API routes providing SQL-aggregated portfolio and project metrics."""
 
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.api.deps import CurrentUserDep, SessionDep
@@ -106,8 +107,14 @@ def export_carbon_estimates_csv(
 ) -> Response:
     """Stream an audit-ready CSV export of calculated carbon credits."""
     try:
-        csv_data = analytics_service.generate_carbon_estimates_csv(db, project_id=project_id)
-        filename = f"carbon_estimates_project_{project_id}.csv" if project_id else "carbon_estimates_portfolio.csv"
+        csv_data = analytics_service.generate_carbon_estimates_csv(
+            db, project_id=project_id
+        )
+        filename = (
+            f"carbon_estimates_project_{project_id}.csv"
+            if project_id
+            else "carbon_estimates_portfolio.csv"
+        )
         return Response(
             content=csv_data,
             media_type="text/csv",

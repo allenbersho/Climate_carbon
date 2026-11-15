@@ -1,6 +1,7 @@
 """Integration tests for Observation models, polymorphic values validation, append-only superseding, and RBAC."""
 
 from datetime import datetime, timedelta, timezone
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,9 @@ from app.models.project import ProjectType
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -45,14 +48,24 @@ def _setup_enrollment(
     """Helper to bootstrap Farmer, Parcel, Project, and an active Enrollment, returning enrollment_id."""
     farmer_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Devendrappa", "district": "Shimoga", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Devendrappa",
+            "district": "Shimoga",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     )
     farmer_id = farmer_res.json()["id"]
 
     parcel_res = client.post(
         "/api/v1/parcels",
-        json={"farmer_id": farmer_id, "area_acres": 10.0, "soil_type": "clay_loam", "crop": "Arecanut"},
+        json={
+            "farmer_id": farmer_id,
+            "area_acres": 10.0,
+            "soil_type": "clay_loam",
+            "crop": "Arecanut",
+        },
         headers=officer_headers,
     )
     parcel_id = parcel_res.json()["id"]
@@ -84,8 +97,12 @@ def _setup_enrollment(
 
 def test_create_soil_observation_success(client: TestClient) -> None:
     """Verify field officer can record a valid soil observation."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs1@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     payload = {
@@ -99,7 +116,9 @@ def test_create_soil_observation_success(client: TestClient) -> None:
         "observed_at": "2026-01-20T10:00:00Z",
         "is_baseline": True,
     }
-    response = client.post("/api/v1/observations", json=payload, headers=officer_headers)
+    response = client.post(
+        "/api/v1/observations", json=payload, headers=officer_headers
+    )
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["enrollment_id"] == enrollment_id
@@ -114,8 +133,12 @@ def test_create_soil_observation_success(client: TestClient) -> None:
 
 def test_create_tree_count_observation_success(client: TestClient) -> None:
     """Verify field officer can record a valid tree_count observation."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     payload = {
@@ -128,7 +151,9 @@ def test_create_tree_count_observation_success(client: TestClient) -> None:
         "observed_at": "2026-02-10T14:30:00Z",
         "is_baseline": False,
     }
-    response = client.post("/api/v1/observations", json=payload, headers=officer_headers)
+    response = client.post(
+        "/api/v1/observations", json=payload, headers=officer_headers
+    )
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["type"] == "tree_count"
@@ -139,8 +164,12 @@ def test_create_tree_count_observation_success(client: TestClient) -> None:
 
 def test_reject_invalid_observation_values_shape_422(client: TestClient) -> None:
     """Verify invalid JSON shapes for soil and tree_count types are rejected with 422."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs3@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Soil missing bulk_density
@@ -150,7 +179,9 @@ def test_reject_invalid_observation_values_shape_422(client: TestClient) -> None
         "values": {"soc_percent": 1.2, "depth_cm": 30.0},  # missing bulk_density
         "observed_at": "2026-01-10T10:00:00Z",
     }
-    res_b1 = client.post("/api/v1/observations", json=bad_soil_1, headers=officer_headers)
+    res_b1 = client.post(
+        "/api/v1/observations", json=bad_soil_1, headers=officer_headers
+    )
     assert res_b1.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     # 2. Soil with negative depth
@@ -160,7 +191,9 @@ def test_reject_invalid_observation_values_shape_422(client: TestClient) -> None
         "values": {"soc_percent": 1.2, "bulk_density": 1.3, "depth_cm": -5.0},
         "observed_at": "2026-01-10T10:00:00Z",
     }
-    res_b2 = client.post("/api/v1/observations", json=bad_soil_2, headers=officer_headers)
+    res_b2 = client.post(
+        "/api/v1/observations", json=bad_soil_2, headers=officer_headers
+    )
     assert res_b2.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     # 3. Tree count missing avg_height_m
@@ -176,8 +209,12 @@ def test_reject_invalid_observation_values_shape_422(client: TestClient) -> None
 
 def test_reject_future_observed_at_422(client: TestClient) -> None:
     """Verify observations with future timestamps are rejected with 422."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs4@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     future_time = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
@@ -187,15 +224,24 @@ def test_reject_future_observed_at_422(client: TestClient) -> None:
         "values": {"soc_percent": 1.5, "bulk_density": 1.2, "depth_cm": 20.0},
         "observed_at": future_time,
     }
-    response = client.post("/api/v1/observations", json=payload, headers=officer_headers)
+    response = client.post(
+        "/api/v1/observations", json=payload, headers=officer_headers
+    )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    assert "cannot be in the future" in response.text.lower() or "future" in response.text.lower()
+    assert (
+        "cannot be in the future" in response.text.lower()
+        or "future" in response.text.lower()
+    )
 
 
 def test_observations_cannot_be_updated_or_deleted_405(client: TestClient) -> None:
     """Verify Rule 1: Observations can NEVER be updated or deleted via API (returns 405 Method Not Allowed)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs5@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     create_res = client.post(
@@ -211,11 +257,15 @@ def test_observations_cannot_be_updated_or_deleted_405(client: TestClient) -> No
     obs_id = create_res.json()["id"]
 
     # PUT returns 405
-    put_res = client.put(f"/api/v1/observations/{obs_id}", json={}, headers=officer_headers)
+    put_res = client.put(
+        f"/api/v1/observations/{obs_id}", json={}, headers=officer_headers
+    )
     assert put_res.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     # PATCH returns 405
-    patch_res = client.patch(f"/api/v1/observations/{obs_id}", json={}, headers=officer_headers)
+    patch_res = client.patch(
+        f"/api/v1/observations/{obs_id}", json={}, headers=officer_headers
+    )
     assert patch_res.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     # DELETE returns 405
@@ -225,8 +275,12 @@ def test_observations_cannot_be_updated_or_deleted_405(client: TestClient) -> No
 
 def test_supersede_observation_append_only_correction(client: TestClient) -> None:
     """Verify correcting an observation creates a new row and updates superseded_by on the old row."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs6@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs6@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Create original observation
@@ -263,7 +317,9 @@ def test_supersede_observation_append_only_correction(client: TestClient) -> Non
     assert new_obs["is_baseline"] is True  # inherited from original
 
     # 3. Verify original observation now records superseded_by pointing to new_id
-    orig_updated = client.get(f"/api/v1/observations/{orig_id}", headers=officer_headers).json()
+    orig_updated = client.get(
+        f"/api/v1/observations/{orig_id}", headers=officer_headers
+    ).json()
     assert orig_updated["superseded_by"] == new_id
 
     # 4. Attempting to supersede the original row AGAIN fails with 409 Conflict
@@ -278,8 +334,12 @@ def test_supersede_observation_append_only_correction(client: TestClient) -> Non
 
 def test_list_observations_active_only_filter(client: TestClient) -> None:
     """Verify active_only=True returns only non-superseded observations, while active_only=False returns full lineage."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs7@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs7@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # Observation 1: created then superseded
@@ -318,12 +378,18 @@ def test_list_observations_active_only_filter(client: TestClient) -> None:
     )
 
     # Total rows in DB is 3 (obs1, obs1_replacement, obs2)
-    full_list = client.get(f"/api/v1/observations?enrollment_id={enrollment_id}&active_only=false", headers=officer_headers)
+    full_list = client.get(
+        f"/api/v1/observations?enrollment_id={enrollment_id}&active_only=false",
+        headers=officer_headers,
+    )
     assert full_list.status_code == status.HTTP_200_OK
     assert full_list.json()["total"] == 3
 
     # active_only=True returns only 2 (obs1_replacement, obs2)
-    active_list = client.get(f"/api/v1/observations?enrollment_id={enrollment_id}&active_only=true", headers=officer_headers)
+    active_list = client.get(
+        f"/api/v1/observations?enrollment_id={enrollment_id}&active_only=true",
+        headers=officer_headers,
+    )
     assert active_list.status_code == status.HTTP_200_OK
     assert active_list.json()["total"] == 2
     assert all(o["superseded_by"] is None for o in active_list.json()["items"])
@@ -331,8 +397,12 @@ def test_list_observations_active_only_filter(client: TestClient) -> None:
 
 def test_nested_enrollment_observations_endpoint(client: TestClient) -> None:
     """Verify nested route GET /api/v1/enrollments/{id}/observations."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs8@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs8@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     client.post(
@@ -346,20 +416,30 @@ def test_nested_enrollment_observations_endpoint(client: TestClient) -> None:
         headers=officer_headers,
     )
 
-    nested_res = client.get(f"/api/v1/enrollments/{enrollment_id}/observations", headers=officer_headers)
+    nested_res = client.get(
+        f"/api/v1/enrollments/{enrollment_id}/observations", headers=officer_headers
+    )
     assert nested_res.status_code == status.HTTP_200_OK
     assert len(nested_res.json()) == 1
 
     # Missing enrollment returns 404
-    missing_res = client.get("/api/v1/enrollments/99999/observations", headers=officer_headers)
+    missing_res = client.get(
+        "/api/v1/enrollments/99999/observations", headers=officer_headers
+    )
     assert missing_res.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_observation_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Officer can create and supersede, Verifier can read but not write, Unauthenticated gets 401."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac_obs@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac_obs@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac_obs@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac_obs@carbontrack.org", UserRole.VERIFIER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Officer creates observation -> 201
@@ -377,8 +457,19 @@ def test_observation_role_permissions(client: TestClient) -> None:
     obs_id = create_res.json()["id"]
 
     # 2. Verifier can read -> 200
-    assert client.get(f"/api/v1/observations/{obs_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
-    assert client.get(f"/api/v1/enrollments/{enrollment_id}/observations", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(
+            f"/api/v1/observations/{obs_id}", headers=verifier_headers
+        ).status_code
+        == status.HTTP_200_OK
+    )
+    assert (
+        client.get(
+            f"/api/v1/enrollments/{enrollment_id}/observations",
+            headers=verifier_headers,
+        ).status_code
+        == status.HTTP_200_OK
+    )
 
     # 3. Verifier cannot create observation -> 403 Forbidden
     ver_create = client.post(
@@ -396,19 +487,28 @@ def test_observation_role_permissions(client: TestClient) -> None:
     # 4. Verifier cannot supersede observation -> 403 Forbidden
     ver_supersede = client.post(
         f"/api/v1/observations/{obs_id}/supersede",
-        json={"values": {"count": 110, "avg_height_m": 2.1}, "observed_at": "2026-01-15T10:00:00Z"},
+        json={
+            "values": {"count": 110, "avg_height_m": 2.1},
+            "observed_at": "2026-01-15T10:00:00Z",
+        },
         headers=verifier_headers,
     )
     assert ver_supersede.status_code == status.HTTP_403_FORBIDDEN
 
     # 5. Unauthenticated gets 401
-    assert client.get("/api/v1/observations").status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        client.get("/api/v1/observations").status_code == status.HTTP_401_UNAUTHORIZED
+    )
 
 
 def test_observation_error_branches_and_edge_cases(client: TestClient) -> None:
     """Verify error responses across observation routes (404s, 422s)."""
-    admin_headers = _create_user_and_login(client, "admin.obs_err@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.obs_err@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "admin.obs_err@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.obs_err@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Nonexistent enrollment on create observation -> 404
@@ -437,11 +537,15 @@ def test_observation_error_branches_and_edge_cases(client: TestClient) -> None:
     assert supersede_404.status_code == status.HTTP_404_NOT_FOUND
 
     # 4. Validate nonexistent observation -> 404
-    validate_404 = client.post("/api/v1/observations/99999/validate", headers=officer_headers)
+    validate_404 = client.post(
+        "/api/v1/observations/99999/validate", headers=officer_headers
+    )
     assert validate_404.status_code == status.HTTP_404_NOT_FOUND
 
     # 5. Get issues for nonexistent observation -> 404
-    issues_404 = client.get("/api/v1/observations/99999/issues", headers=officer_headers)
+    issues_404 = client.get(
+        "/api/v1/observations/99999/issues", headers=officer_headers
+    )
     assert issues_404.status_code == status.HTTP_404_NOT_FOUND
 
     # 6. Create valid observation, then supersede with invalid observation values -> 422
@@ -461,8 +565,10 @@ def test_observation_error_branches_and_edge_cases(client: TestClient) -> None:
     # Supersede with negative count/soc
     bad_supersede = client.post(
         f"/api/v1/observations/{obs_id}/supersede",
-        json={"values": {"soc_percent": -5.0, "bulk_density": 1.1, "depth_cm": 30.0}, "observed_at": "2026-01-16T10:00:00Z"},
+        json={
+            "values": {"soc_percent": -5.0, "bulk_density": 1.1, "depth_cm": 30.0},
+            "observed_at": "2026-01-16T10:00:00Z",
+        },
         headers=officer_headers,
     )
     assert bad_supersede.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-

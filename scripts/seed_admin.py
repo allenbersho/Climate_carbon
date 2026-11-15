@@ -1,7 +1,7 @@
 """Seed script to bootstrap the initial administrator user from environment settings."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Ensure repository root is on sys.path for direct CLI execution
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +29,9 @@ def _create_admin_in_session(db: Session, email: str, password: str) -> None:
         role=UserRole.ADMIN,
     )
     admin = user_service.create_user(db, user_create)
-    print(f"[Seed] Successfully created administrator: id={admin.id}, email={admin.email}, role={admin.role.value}")
+    print(
+        f"[Seed] Successfully created administrator: id={admin.id}, email={admin.email}, role={admin.role.value}"
+    )
 
 
 def seed_admin(db: Session | None = None) -> None:

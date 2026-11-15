@@ -1,6 +1,7 @@
 """Monitoring and timeline analytics API routes."""
 
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUserDep, SessionDep

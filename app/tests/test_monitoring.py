@@ -1,6 +1,7 @@
 """Integration tests for monitoring timeline analytics, change from baseline, date filters, and RBAC."""
 
 from datetime import datetime, timezone
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,9 @@ from app.models.project import ProjectType
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -46,14 +49,24 @@ def _setup_enrollment_with_observations(
     # 1. Farmer & Parcel
     farmer_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Kariyappa", "district": "Chikkamagaluru", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Kariyappa",
+            "district": "Chikkamagaluru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     )
     farmer_id = farmer_res.json()["id"]
 
     parcel_res = client.post(
         "/api/v1/parcels",
-        json={"farmer_id": farmer_id, "area_acres": 12.0, "soil_type": "red_laterite", "crop": "Coffee"},
+        json={
+            "farmer_id": farmer_id,
+            "area_acres": 12.0,
+            "soil_type": "red_laterite",
+            "crop": "Coffee",
+        },
         headers=officer_headers,
     )
     parcel_id = parcel_res.json()["id"]
@@ -154,11 +167,19 @@ def _setup_enrollment_with_observations(
 
 def test_monitoring_timeline_change_from_baseline(client: TestClient) -> None:
     """Verify GET /api/v1/monitoring/{id}/timeline returns ordered observations with delta from baseline."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.mon1@carbontrack.org", UserRole.FIELD_OFFICER)
-    enrollment_id = _setup_enrollment_with_observations(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.mon1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    enrollment_id = _setup_enrollment_with_observations(
+        client, officer_headers, admin_headers
+    )
 
-    response = client.get(f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers)
+    response = client.get(
+        f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers
+    )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
 
@@ -210,9 +231,15 @@ def test_monitoring_timeline_change_from_baseline(client: TestClient) -> None:
 
 def test_monitoring_timeline_date_range_filter(client: TestClient) -> None:
     """Verify date-range filtering works while retaining delta calculation against the baseline."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.mon2@carbontrack.org", UserRole.FIELD_OFFICER)
-    enrollment_id = _setup_enrollment_with_observations(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.mon2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    enrollment_id = _setup_enrollment_with_observations(
+        client, officer_headers, admin_headers
+    )
 
     # Filter strictly for July 2025 (excludes January 2025 baseline and January 2026 follow-ups)
     url = f"/api/v1/monitoring/{enrollment_id}/timeline?from_date=2025-07-01T00:00:00Z&to_date=2025-07-31T23:59:59Z"
@@ -234,9 +261,15 @@ def test_monitoring_timeline_date_range_filter(client: TestClient) -> None:
 
 def test_monitoring_timeline_type_filter(client: TestClient) -> None:
     """Verify filtering timeline by observation type (e.g. type=tree_count)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.mon3@carbontrack.org", UserRole.FIELD_OFFICER)
-    enrollment_id = _setup_enrollment_with_observations(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.mon3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    enrollment_id = _setup_enrollment_with_observations(
+        client, officer_headers, admin_headers
+    )
 
     url = f"/api/v1/monitoring/{enrollment_id}/timeline?type=tree_count"
     response = client.get(url, headers=officer_headers)
@@ -250,14 +283,24 @@ def test_monitoring_timeline_type_filter(client: TestClient) -> None:
     assert data["timeline"][1]["change_from_baseline"]["count"] == 280.0
 
 
-def test_monitoring_timeline_superseded_observation_handling(client: TestClient) -> None:
+def test_monitoring_timeline_superseded_observation_handling(
+    client: TestClient,
+) -> None:
     """Verify that by default superseded observations are excluded, and active replacement is used for delta."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.mon4@carbontrack.org", UserRole.FIELD_OFFICER)
-    enrollment_id = _setup_enrollment_with_observations(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.mon4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    enrollment_id = _setup_enrollment_with_observations(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Fetch initial timeline to get the Month 6 observation ID
-    init_res = client.get(f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers)
+    init_res = client.get(
+        f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers
+    )
     month6_obs_id = init_res.json()["timeline"][2]["id"]
 
     # 2. Supersede Month 6 observation with corrected SOC (1.45 instead of 1.40)
@@ -272,7 +315,9 @@ def test_monitoring_timeline_superseded_observation_handling(client: TestClient)
     )
 
     # 3. Default timeline (include_superseded=False) contains only active rows (total remains 5)
-    active_res = client.get(f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers)
+    active_res = client.get(
+        f"/api/v1/monitoring/{enrollment_id}/timeline", headers=officer_headers
+    )
     assert active_res.status_code == status.HTTP_200_OK
     active_data = active_res.json()
     assert active_data["total_observations"] == 5
@@ -283,7 +328,10 @@ def test_monitoring_timeline_superseded_observation_handling(client: TestClient)
     assert item2["is_superseded"] is False
 
     # 4. include_superseded=True shows 6 items (including the old row with is_superseded=True)
-    full_res = client.get(f"/api/v1/monitoring/{enrollment_id}/timeline?include_superseded=true", headers=officer_headers)
+    full_res = client.get(
+        f"/api/v1/monitoring/{enrollment_id}/timeline?include_superseded=true",
+        headers=officer_headers,
+    )
     assert full_res.status_code == status.HTTP_200_OK
     full_data = full_res.json()
     assert full_data["total_observations"] == 6
@@ -294,7 +342,9 @@ def test_monitoring_timeline_superseded_observation_handling(client: TestClient)
 
 def test_monitoring_timeline_nonexistent_enrollment_404(client: TestClient) -> None:
     """Verify requesting timeline for nonexistent enrollment returns 404."""
-    officer_headers = _create_user_and_login(client, "officer.mon5@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.mon5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     response = client.get("/api/v1/monitoring/99999/timeline", headers=officer_headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["error"]["code"] == "NOT_FOUND"
@@ -302,10 +352,18 @@ def test_monitoring_timeline_nonexistent_enrollment_404(client: TestClient) -> N
 
 def test_monitoring_timeline_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Admin, Officer, and Verifier can all view timeline; Unauthenticated gets 401."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac_mon@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac_mon@carbontrack.org", UserRole.VERIFIER)
-    enrollment_id = _setup_enrollment_with_observations(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac_mon@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac_mon@carbontrack.org", UserRole.VERIFIER
+    )
+    enrollment_id = _setup_enrollment_with_observations(
+        client, officer_headers, admin_headers
+    )
 
     url = f"/api/v1/monitoring/{enrollment_id}/timeline"
 

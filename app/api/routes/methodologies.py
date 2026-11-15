@@ -1,6 +1,7 @@
 """Methodology API routes for inspecting and registering calculation parameters."""
 
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import CurrentUserDep, SessionDep, require_roles
@@ -63,7 +64,9 @@ def get_methodology(
     _current_user: CurrentUserDep,
 ) -> MethodologyRead:
     """Fetch methodology details and calculation parameters by ID."""
-    methodology = methodology_service.get_methodology_by_id(db, methodology_id=methodology_id)
+    methodology = methodology_service.get_methodology_by_id(
+        db, methodology_id=methodology_id
+    )
     if not methodology:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

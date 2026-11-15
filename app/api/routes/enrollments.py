@@ -17,7 +17,9 @@ from app.schemas.enrollment import (
 )
 from app.schemas.observation import ObservationRead
 from app.services import activity_service, enrollment_service, observation_service
-from app.services.activity_service import EnrollmentNotFoundError as ActivityEnrollmentNotFoundError
+from app.services.activity_service import (
+    EnrollmentNotFoundError as ActivityEnrollmentNotFoundError,
+)
 from app.services.enrollment_service import (
     DuplicateActiveEnrollmentError,
     EnrollmentNotFoundError,
@@ -72,7 +74,9 @@ def get_enrollment(
     _current_user: CurrentUserDep,
 ) -> EnrollmentRead:
     """Fetch enrollment details by primary key."""
-    enrollment = enrollment_service.get_enrollment_by_id(db, enrollment_id=enrollment_id)
+    enrollment = enrollment_service.get_enrollment_by_id(
+        db, enrollment_id=enrollment_id
+    )
     if not enrollment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -188,7 +192,9 @@ def get_enrollment_observations(
     enrollment_id: int,
     db: SessionDep,
     _current_user: CurrentUserDep,
-    active_only: bool = Query(default=False, description="Exclude superseded observations"),
+    active_only: bool = Query(
+        default=False, description="Exclude superseded observations"
+    ),
 ) -> list[ObservationRead]:
     """Retrieve all observations for a specific enrollment."""
     try:

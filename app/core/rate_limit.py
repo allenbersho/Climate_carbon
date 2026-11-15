@@ -1,16 +1,19 @@
 """In-memory sliding-window rate limiting dependency and utilities."""
 
-from collections import defaultdict
 import math
 import threading
 import time
+from collections import defaultdict
+
 from fastapi import HTTPException, Request, status
 
 
 class SlidingWindowRateLimiter:
     """Thread-safe sliding-window in-memory rate limiter."""
 
-    def __init__(self, requests_per_minute: int = 60, key_prefix: str = "default") -> None:
+    def __init__(
+        self, requests_per_minute: int = 60, key_prefix: str = "default"
+    ) -> None:
         self.requests_per_minute = requests_per_minute
         self.key_prefix = key_prefix
         self.window_seconds = 60.0
@@ -45,7 +48,9 @@ class SlidingWindowRateLimiter:
             if len(recent_requests) >= self.requests_per_minute:
                 # Oldest request in the window dictates when the next slot opens
                 oldest_request = recent_requests[0]
-                retry_after = max(1, math.ceil(oldest_request + self.window_seconds - now))
+                retry_after = max(
+                    1, math.ceil(oldest_request + self.window_seconds - now)
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=f"Rate limit exceeded. Maximum {self.requests_per_minute} requests per minute. Try again in {retry_after} seconds.",

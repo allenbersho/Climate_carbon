@@ -64,7 +64,10 @@ def test_auth_full_lifecycle(client: TestClient) -> None:
     # 5. Officer logs in successfully
     officer_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "field.officer@carbontrack.org", "password": "OfficerPassword123!"},
+        json={
+            "email": "field.officer@carbontrack.org",
+            "password": "OfficerPassword123!",
+        },
     )
     assert officer_login.status_code == status.HTTP_200_OK
     officer_token = officer_login.json()["access_token"]
@@ -73,7 +76,11 @@ def test_auth_full_lifecycle(client: TestClient) -> None:
     officer_headers = {"Authorization": f"Bearer {officer_token}"}
     forbidden_reg = client.post(
         "/api/v1/auth/register",
-        json={"email": "verifier@carbontrack.org", "password": "VerifierPass123!", "role": "verifier"},
+        json={
+            "email": "verifier@carbontrack.org",
+            "password": "VerifierPass123!",
+            "role": "verifier",
+        },
         headers=officer_headers,
     )
     assert forbidden_reg.status_code == status.HTTP_403_FORBIDDEN
@@ -90,7 +97,10 @@ def test_login_wrong_password(client: TestClient) -> None:
 
     response = client.post(
         "/api/v1/auth/login",
-        json={"email": "user.test@carbontrack.org", "password": "IncorrectPassword999!"},
+        json={
+            "email": "user.test@carbontrack.org",
+            "password": "IncorrectPassword999!",
+        },
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     error_data = response.json()
@@ -113,20 +123,29 @@ def test_register_duplicate_email(client: TestClient) -> None:
     # First registration (bootstrapped)
     client.post(
         "/api/v1/auth/register",
-        json={"email": "duplicate.target@carbontrack.org", "password": "SecurePassword123!"},
+        json={
+            "email": "duplicate.target@carbontrack.org",
+            "password": "SecurePassword123!",
+        },
     )
 
     # Login to obtain admin token
     login_res = client.post(
         "/api/v1/auth/login",
-        json={"email": "duplicate.target@carbontrack.org", "password": "SecurePassword123!"},
+        json={
+            "email": "duplicate.target@carbontrack.org",
+            "password": "SecurePassword123!",
+        },
     )
     token = login_res.json()["access_token"]
 
     # Attempt to register the exact same email again
     dup_response = client.post(
         "/api/v1/auth/register",
-        json={"email": "duplicate.target@carbontrack.org", "password": "AnotherPassword123!"},
+        json={
+            "email": "duplicate.target@carbontrack.org",
+            "password": "AnotherPassword123!",
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
     assert dup_response.status_code == status.HTTP_409_CONFLICT
@@ -150,7 +169,10 @@ def test_seed_admin_script(client: TestClient, db_session: Session) -> None:
     # Verify admin can log in
     login_res = client.post(
         "/api/v1/auth/login",
-        json={"email": settings.FIRST_ADMIN_EMAIL, "password": settings.FIRST_ADMIN_PASSWORD},
+        json={
+            "email": settings.FIRST_ADMIN_EMAIL,
+            "password": settings.FIRST_ADMIN_PASSWORD,
+        },
     )
     assert login_res.status_code == status.HTTP_200_OK
     assert "access_token" in login_res.json()
@@ -174,11 +196,17 @@ def test_admin_only_route_401_vs_403(client: TestClient) -> None:
     # 3. Bootstrap initial admin account
     client.post(
         "/api/v1/auth/register",
-        json={"email": "bootstrap.admin@carbontrack.org", "password": "AdminPassword123!"},
+        json={
+            "email": "bootstrap.admin@carbontrack.org",
+            "password": "AdminPassword123!",
+        },
     )
     admin_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "bootstrap.admin@carbontrack.org", "password": "AdminPassword123!"},
+        json={
+            "email": "bootstrap.admin@carbontrack.org",
+            "password": "AdminPassword123!",
+        },
     )
     admin_token = admin_login.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -195,7 +223,10 @@ def test_admin_only_route_401_vs_403(client: TestClient) -> None:
     )
     officer_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "officer.worker@carbontrack.org", "password": "OfficerPassword123!"},
+        json={
+            "email": "officer.worker@carbontrack.org",
+            "password": "OfficerPassword123!",
+        },
     )
     officer_token = officer_login.json()["access_token"]
     officer_headers = {"Authorization": f"Bearer {officer_token}"}

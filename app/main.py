@@ -1,6 +1,7 @@
 """FastAPI main application entrypoint with security hardening and structured logging."""
 
 import logging
+
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -18,7 +19,9 @@ setup_logging(log_level=settings.LOG_LEVEL, log_format=settings.LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
 if settings.ENVIRONMENT == "production" and "dev-secret-key" in settings.SECRET_KEY:
-    logger.warning("SECURITY WARNING: Running in production with default development SECRET_KEY!")
+    logger.warning(
+        "SECURITY WARNING: Running in production with default development SECRET_KEY!"
+    )
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -53,7 +56,9 @@ _STATUS_CODE_MAP = {
 
 
 @app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def custom_http_exception_handler(
+    request: Request, exc: HTTPException
+) -> JSONResponse:
     """Format HTTP errors as {"error": {"code": "...", "message": "...", "details": ...}}."""
     code = _STATUS_CODE_MAP.get(exc.status_code, "ERROR")
     headers = getattr(exc, "headers", None)
@@ -71,7 +76,9 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Format Pydantic schema validation errors with standard error structure."""
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -88,7 +95,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global catch-all exception handler to prevent leaking raw internal stack traces."""
-    logger.exception(f"Unhandled server error on {request.method} {request.url.path}: {exc}")
+    logger.exception(
+        f"Unhandled server error on {request.method} {request.url.path}: {exc}"
+    )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -134,7 +143,10 @@ def root() -> dict[str, str]:
 
 
 if settings.ENVIRONMENT != "production":
+
     @app.get("/test-unhandled-error", include_in_schema=False)
     def test_unhandled_error() -> None:
         """Endpoint used exclusively in test suites to verify 500 error sanitization."""
-        raise RuntimeError("Deliberate internal explosion to verify global 500 error sanitization")
+        raise RuntimeError(
+            "Deliberate internal explosion to verify global 500 error sanitization"
+        )

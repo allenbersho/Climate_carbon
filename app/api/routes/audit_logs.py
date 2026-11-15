@@ -29,10 +29,16 @@ def list_audit_logs(
     _current_user: CanViewAuditLogs,
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    entity_type: str | None = Query(default=None, description="Filter by entity type (project, farmer, enrollment, etc.)"),
+    entity_type: str | None = Query(
+        default=None,
+        description="Filter by entity type (project, farmer, enrollment, etc.)",
+    ),
     entity_id: int | None = Query(default=None, description="Filter by entity ID"),
     user_id: int | None = Query(default=None, description="Filter by user ID"),
-    action: str | None = Query(default=None, description="Filter by action (CREATE, UPDATE, STATE_CHANGE, SOFT_DELETE)"),
+    action: str | None = Query(
+        default=None,
+        description="Filter by action (CREATE, UPDATE, STATE_CHANGE, SOFT_DELETE)",
+    ),
 ) -> AuditLogListResponse:
     """Query historical audit events with optional entity and action filters."""
     items, total = audit_service.list_audit_logs(

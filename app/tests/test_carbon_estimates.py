@@ -3,16 +3,18 @@
 and calculation reproducibility.
 """
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.user import UserRole
 from app.services.methodology_service import seed_default_methodologies
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -48,7 +50,12 @@ def _setup_afforestation_enrollment(
     """Bootstrap Farmer, Parcel, Afforestation Project, and Enrollment, returning (enrollment_id, parcel_id)."""
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Channappa", "district": "Uttara Kannada", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Channappa",
+            "district": "Uttara Kannada",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -60,13 +67,22 @@ def _setup_afforestation_enrollment(
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Western Ghats Afforestation", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Western Ghats Afforestation",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -81,7 +97,12 @@ def _setup_soil_carbon_enrollment(
     """Bootstrap Farmer, Parcel, Regen Ag Project, and Enrollment, returning (enrollment_id, parcel_id)."""
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Mahadevappa", "district": "Haveri", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Mahadevappa",
+            "district": "Haveri",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -93,13 +114,22 @@ def _setup_soil_carbon_enrollment(
 
     project_id = client.post(
         "/api/v1/projects",
-        json={"name": "Haveri Regen Soil Project", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Haveri Regen Soil Project",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     enrollment_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -110,14 +140,25 @@ def _setup_soil_carbon_enrollment(
 # Tests: Calculation Execution & Endpoints
 # =====================================================================
 
-def test_estimate_afforestation_carbon_success(client: TestClient, db_session: Session) -> None:
+
+def test_estimate_afforestation_carbon_success(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify Afforestation carbon credit estimation matches hand calculation."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.est1@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.est1@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.est1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.est1@carbontrack.org", UserRole.VERIFIER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Baseline observation: 100 trees on 2025-01-01
     client.post(
@@ -175,11 +216,19 @@ def test_estimate_afforestation_carbon_success(client: TestClient, db_session: S
 def test_estimate_soil_carbon_success(client: TestClient, db_session: Session) -> None:
     """Verify Soil Carbon credit estimation matches hand calculation."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.est2@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.est2@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.est2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.est2@carbontrack.org", UserRole.VERIFIER
+    )
 
-    enrollment_id, _parcel_id = _setup_soil_carbon_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_soil_carbon_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Baseline: SOC% 1.2, BD 1.30, Depth 30cm on 2025-01-01
     client.post(
@@ -224,7 +273,9 @@ def test_estimate_soil_carbon_success(client: TestClient, db_session: Session) -
     assert data["buffer_pct"] == 0.20
 
     # 4. GET /api/v1/carbon/estimates/{enrollment_id}
-    list_res = client.get(f"/api/v1/carbon/estimates/{enrollment_id}", headers=officer_headers)
+    list_res = client.get(
+        f"/api/v1/carbon/estimates/{enrollment_id}", headers=officer_headers
+    )
     assert list_res.status_code == status.HTTP_200_OK
     assert list_res.json()["total"] >= 1
     assert list_res.json()["items"][0]["id"] == data["id"]
@@ -234,16 +285,25 @@ def test_estimate_soil_carbon_success(client: TestClient, db_session: Session) -
 # Tests: Reproducibility & Methodology Version Immunity
 # =====================================================================
 
-def test_estimate_reproducibility_same_inputs_same_results(client: TestClient, db_session: Session) -> None:
+
+def test_estimate_reproducibility_same_inputs_same_results(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify mathematical reproducibility: running estimation with identical inputs
 
     produces exact identical results and snapshots.
     """
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.repro@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.repro@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     client.post(
         "/api/v1/observations",
@@ -269,23 +329,41 @@ def test_estimate_reproducibility_same_inputs_same_results(client: TestClient, d
     )
 
     # Estimate 1
-    est1 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=admin_headers).json()
+    est1 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=admin_headers,
+    ).json()
     # Estimate 2
-    est2 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=admin_headers).json()
+    est2 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=admin_headers,
+    ).json()
 
     assert est1["co2e_tonnes"] == est2["co2e_tonnes"]
     assert est1["net_credits"] == est2["net_credits"]
     assert est1["inputs_snapshot"]["inputs"] == est2["inputs_snapshot"]["inputs"]
-    assert est1["inputs_snapshot"]["parameters"] == est2["inputs_snapshot"]["parameters"]
+    assert (
+        est1["inputs_snapshot"]["parameters"] == est2["inputs_snapshot"]["parameters"]
+    )
 
 
-def test_methodology_mutation_does_not_alter_stored_estimates(client: TestClient, db_session: Session) -> None:
+def test_methodology_mutation_does_not_alter_stored_estimates(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify that updating a methodology row's parameters never alters historical stored estimates."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.mut@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.mut@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     client.post(
         "/api/v1/observations",
@@ -311,7 +389,11 @@ def test_methodology_mutation_does_not_alter_stored_estimates(client: TestClient
     )
 
     # Run original estimate under Afforestation v1 (net = 32.95905)
-    orig_res = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=admin_headers)
+    orig_res = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=admin_headers,
+    )
     orig_data = orig_res.json()
     orig_id = orig_data["id"]
     orig_net = orig_data["net_credits"]
@@ -327,8 +409,12 @@ def test_methodology_mutation_does_not_alter_stored_estimates(client: TestClient
     )
 
     # Re-fetch the historical estimate via GET /api/v1/carbon/estimates/{id}
-    hist_res = client.get(f"/api/v1/carbon/estimates/{enrollment_id}", headers=officer_headers)
-    stored_est = next(item for item in hist_res.json()["items"] if item["id"] == orig_id)
+    hist_res = client.get(
+        f"/api/v1/carbon/estimates/{enrollment_id}", headers=officer_headers
+    )
+    stored_est = next(
+        item for item in hist_res.json()["items"] if item["id"] == orig_id
+    )
 
     # Historical estimate MUST be 100% immune to methodology mutations!
     assert stored_est["net_credits"] == orig_net
@@ -339,13 +425,22 @@ def test_methodology_mutation_does_not_alter_stored_estimates(client: TestClient
 # Tests: Validation Error Exclusion & Rule 3 Requirements
 # =====================================================================
 
-def test_error_flagged_observations_excluded_from_estimation(client: TestClient, db_session: Session) -> None:
+
+def test_error_flagged_observations_excluded_from_estimation(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify Rule 4: Observations with error-severity issues are excluded from estimation."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.excl@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.excl@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Baseline observation (valid)
     client.post(
@@ -408,16 +503,28 @@ def test_error_flagged_observations_excluded_from_estimation(client: TestClient,
     assert success_res.json()["inputs_snapshot"]["inputs"]["trees"] == 300.0
 
 
-def test_insufficient_observations_rejected_422(client: TestClient, db_session: Session) -> None:
+def test_insufficient_observations_rejected_422(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify Rule 3: Missing baseline or missing later observation raises 422."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.insuf@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.insuf@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Zero observations -> 422
-    res1 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=admin_headers)
+    res1 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=admin_headers,
+    )
     assert res1.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     # 2. Baseline only (no subsequent observation) -> 422
@@ -432,41 +539,75 @@ def test_insufficient_observations_rejected_422(client: TestClient, db_session: 
         },
         headers=officer_headers,
     )
-    res2 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=admin_headers)
+    res2 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=admin_headers,
+    )
     assert res2.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-def test_role_permissions_for_carbon_estimates(client: TestClient, db_session: Session) -> None:
+def test_role_permissions_for_carbon_estimates(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify RBAC: Admin and Verifier can run estimate, Field Officer 403, Unauthenticated 401."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.role@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.role@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.role@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.role@carbontrack.org", UserRole.VERIFIER
+    )
 
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Unauthenticated -> 401
-    unauth = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id})
+    unauth = client.post(
+        "/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}
+    )
     assert unauth.status_code == status.HTTP_401_UNAUTHORIZED
 
     # 2. Field Officer -> 403 Forbidden
-    officer_res = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=officer_headers)
+    officer_res = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=officer_headers,
+    )
     assert officer_res.status_code == status.HTTP_403_FORBIDDEN
 
     # 3. Verifier -> allowed (returns 422 because observations aren't added yet, proving auth succeeded!)
-    verifier_res = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=verifier_headers)
+    verifier_res = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id},
+        headers=verifier_headers,
+    )
     assert verifier_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-def test_carbon_estimate_error_branches_and_not_found(client: TestClient, db_session: Session) -> None:
+def test_carbon_estimate_error_branches_and_not_found(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify 404 on nonexistent enrollment/methodology and get_estimate_by_id helper."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "admin.carb_err@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.carb_err@carbontrack.org", UserRole.FIELD_OFFICER)
-    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "admin.carb_err@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.carb_err@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(
+        client, officer_headers, admin_headers
+    )
 
     # 1. Nonexistent enrollment -> 404
-    res_no_enrollment = client.post("/api/v1/carbon/estimate", json={"enrollment_id": 99999}, headers=admin_headers)
+    res_no_enrollment = client.post(
+        "/api/v1/carbon/estimate", json={"enrollment_id": 99999}, headers=admin_headers
+    )
     assert res_no_enrollment.status_code == status.HTTP_404_NOT_FOUND
 
     # Add valid observations to enrollment
@@ -506,5 +647,5 @@ def test_carbon_estimate_error_branches_and_not_found(client: TestClient, db_ses
 
     # 4. Direct call to get_estimate_by_id with nonexistent ID returns None
     from app.services.carbon_service import get_estimate_by_id
-    assert get_estimate_by_id(db_session, estimate_id=99999) is None
 
+    assert get_estimate_by_id(db_session, estimate_id=99999) is None

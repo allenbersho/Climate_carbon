@@ -1,6 +1,7 @@
 """Activity domain services, date validation, and business logic."""
 
 from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 

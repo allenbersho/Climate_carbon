@@ -1,6 +1,7 @@
 """Integration tests for Activity creation, future-date rejection, JSON details, and date-range filters."""
 
 from datetime import date, timedelta
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,9 @@ from app.models.project import ProjectType
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -46,7 +49,12 @@ def _setup_enrollment(
     # 1. Farmer
     farmer_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Basavaraju", "district": "Hassan", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Basavaraju",
+            "district": "Hassan",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     )
     farmer_id = farmer_res.json()["id"]
@@ -88,8 +96,12 @@ def _setup_enrollment(
 
 def test_create_activity_success(client: TestClient) -> None:
     """Verify field officer can record a planting activity with JSON details."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act1@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     payload = {
@@ -116,8 +128,12 @@ def test_create_activity_success(client: TestClient) -> None:
 
 def test_reject_future_activity_date_422(client: TestClient) -> None:
     """Verify activities with future dates are rejected with 422."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
@@ -130,12 +146,16 @@ def test_reject_future_activity_date_422(client: TestClient) -> None:
     response = client.post("/api/v1/activities", json=payload, headers=officer_headers)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     error_msg = response.text
-    assert "cannot be in the future" in error_msg.lower() or "future" in error_msg.lower()
+    assert (
+        "cannot be in the future" in error_msg.lower() or "future" in error_msg.lower()
+    )
 
 
 def test_create_activity_nonexistent_enrollment_404(client: TestClient) -> None:
     """Verify recording an activity for a nonexistent enrollment returns 404."""
-    officer_headers = _create_user_and_login(client, "officer.act3@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.act3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     payload = {
         "enrollment_id": 99999,
@@ -150,8 +170,12 @@ def test_create_activity_nonexistent_enrollment_404(client: TestClient) -> None:
 
 def test_activity_json_details_flexibility(client: TestClient) -> None:
     """Verify storing different schema details for different activity types in JSON column."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act4@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Cover cropping with seed rate details
@@ -161,7 +185,11 @@ def test_activity_json_details_flexibility(client: TestClient) -> None:
             "enrollment_id": enrollment_id,
             "type": "cover_cropping",
             "activity_date": "2026-01-20",
-            "details": {"cover_crop": "Sunn hemp", "seed_rate_kg_per_acre": 15.0, "intercropped": True},
+            "details": {
+                "cover_crop": "Sunn hemp",
+                "seed_rate_kg_per_acre": 15.0,
+                "intercropped": True,
+            },
         },
         headers=officer_headers,
     )
@@ -179,38 +207,59 @@ def test_activity_json_details_flexibility(client: TestClient) -> None:
 
 def test_list_activities_by_enrollment_and_type(client: TestClient) -> None:
     """Verify listing activities filtered by enrollment_id and activity type."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act5@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment1_id = _setup_enrollment(client, officer_headers, admin_headers)
     enrollment2_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # Enrollment 1 activities
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment1_id, "type": "planting", "activity_date": "2026-01-10", "details": {}},
+        json={
+            "enrollment_id": enrollment1_id,
+            "type": "planting",
+            "activity_date": "2026-01-10",
+            "details": {},
+        },
         headers=officer_headers,
     )
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment1_id, "type": "mulching", "activity_date": "2026-01-12", "details": {}},
+        json={
+            "enrollment_id": enrollment1_id,
+            "type": "mulching",
+            "activity_date": "2026-01-12",
+            "details": {},
+        },
         headers=officer_headers,
     )
 
     # Enrollment 2 activity
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment2_id, "type": "planting", "activity_date": "2026-01-15", "details": {}},
+        json={
+            "enrollment_id": enrollment2_id,
+            "type": "planting",
+            "activity_date": "2026-01-15",
+            "details": {},
+        },
         headers=officer_headers,
     )
 
     # Filter by enrollment1_id
-    res_e1 = client.get(f"/api/v1/activities?enrollment_id={enrollment1_id}", headers=officer_headers)
+    res_e1 = client.get(
+        f"/api/v1/activities?enrollment_id={enrollment1_id}", headers=officer_headers
+    )
     assert res_e1.status_code == status.HTTP_200_OK
     assert res_e1.json()["total"] == 2
     assert all(a["enrollment_id"] == enrollment1_id for a in res_e1.json()["items"])
 
     # Filter by type=mulching
-    res_mulch = client.get(f"/api/v1/activities?type=mulching", headers=officer_headers)
+    res_mulch = client.get("/api/v1/activities?type=mulching", headers=officer_headers)
     assert res_mulch.status_code == status.HTTP_200_OK
     assert res_mulch.json()["total"] == 1
     assert res_mulch.json()["items"][0]["type"] == "mulching"
@@ -218,24 +267,43 @@ def test_list_activities_by_enrollment_and_type(client: TestClient) -> None:
 
 def test_list_activities_date_range_filter(client: TestClient) -> None:
     """Verify date-range filtering using from_date and to_date."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act6@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act6@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # Create 3 activities across Jan, Feb, Mar
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "planting", "activity_date": "2026-01-15", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "planting",
+            "activity_date": "2026-01-15",
+            "details": {},
+        },
         headers=officer_headers,
     )
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "cover_cropping", "activity_date": "2026-02-15", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "cover_cropping",
+            "activity_date": "2026-02-15",
+            "details": {},
+        },
         headers=officer_headers,
     )
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "composting", "activity_date": "2026-03-15", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "composting",
+            "activity_date": "2026-03-15",
+            "details": {},
+        },
         headers=officer_headers,
     )
 
@@ -252,23 +320,39 @@ def test_list_activities_date_range_filter(client: TestClient) -> None:
 
 def test_nested_enrollment_activities_endpoint(client: TestClient) -> None:
     """Verify nested route GET /api/v1/enrollments/{id}/activities with date filters."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act7@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act7@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "planting", "activity_date": "2026-01-05", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "planting",
+            "activity_date": "2026-01-05",
+            "details": {},
+        },
         headers=officer_headers,
     )
     client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "mulching", "activity_date": "2026-02-10", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "mulching",
+            "activity_date": "2026-02-10",
+            "details": {},
+        },
         headers=officer_headers,
     )
 
     # Nested query
-    nested_res = client.get(f"/api/v1/enrollments/{enrollment_id}/activities", headers=officer_headers)
+    nested_res = client.get(
+        f"/api/v1/enrollments/{enrollment_id}/activities", headers=officer_headers
+    )
     assert nested_res.status_code == status.HTTP_200_OK
     activities = nested_res.json()
     assert len(activities) == 2
@@ -284,35 +368,61 @@ def test_nested_enrollment_activities_endpoint(client: TestClient) -> None:
     assert filtered_items[0]["type"] == "mulching"
 
     # Missing enrollment returns 404
-    missing_res = client.get("/api/v1/enrollments/99999/activities", headers=officer_headers)
+    missing_res = client.get(
+        "/api/v1/enrollments/99999/activities", headers=officer_headers
+    )
     assert missing_res.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_activity_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Officer can create, Verifier can read but not write, Unauthenticated gets 401."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac_a@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac_a@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac_a@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac_a@carbontrack.org", UserRole.VERIFIER
+    )
 
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Officer creates activity -> 201
     create_res = client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "composting", "activity_date": "2026-01-10", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "composting",
+            "activity_date": "2026-01-10",
+            "details": {},
+        },
         headers=officer_headers,
     )
     assert create_res.status_code == status.HTTP_201_CREATED
     act_id = create_res.json()["id"]
 
     # 2. Verifier can read -> 200
-    assert client.get(f"/api/v1/activities/{act_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
-    assert client.get(f"/api/v1/enrollments/{enrollment_id}/activities", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(f"/api/v1/activities/{act_id}", headers=verifier_headers).status_code
+        == status.HTTP_200_OK
+    )
+    assert (
+        client.get(
+            f"/api/v1/enrollments/{enrollment_id}/activities", headers=verifier_headers
+        ).status_code
+        == status.HTTP_200_OK
+    )
 
     # 3. Verifier cannot create activity -> 403 Forbidden
     ver_create = client.post(
         "/api/v1/activities",
-        json={"enrollment_id": enrollment_id, "type": "planting", "activity_date": "2026-01-10", "details": {}},
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "planting",
+            "activity_date": "2026-01-10",
+            "details": {},
+        },
         headers=verifier_headers,
     )
     assert ver_create.status_code == status.HTTP_403_FORBIDDEN
@@ -323,8 +433,12 @@ def test_activity_role_permissions(client: TestClient) -> None:
 
 def test_update_activity_lifecycle_and_error_branches(client: TestClient) -> None:
     """Verify PATCH /api/v1/activities/{id} updates data, rejects future dates (422), and handles 404s."""
-    admin_headers = _create_user_and_login(client, "admin.act_upd@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.act_upd@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "admin.act_upd@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.act_upd@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
 
     # 1. Create activity
@@ -384,4 +498,3 @@ def test_update_activity_lifecycle_and_error_branches(client: TestClient) -> Non
     )
     assert nested_res.status_code == status.HTTP_200_OK
     assert len(nested_res.json()) >= 1
-

@@ -1,8 +1,9 @@
 """Analytics domain service executing pure SQL aggregations for portfolio and project reporting."""
 
 import csv
-from datetime import datetime
 import io
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -63,14 +64,11 @@ def get_analytics_summary(
     enrolled_sub = enrollment_query.subquery("enrolled_sub")
 
     # 2. Subquery: Pre-aggregated carbon removals per enrollment
-    carbon_query = (
-        select(
-            CarbonEstimate.enrollment_id.label("enrollment_id"),
-            func.coalesce(func.sum(CarbonEstimate.co2e_tonnes), 0.0).label("co2e_tonnes"),
-            func.coalesce(func.sum(CarbonEstimate.net_credits), 0.0).label("net_credits"),
-        )
-        .group_by(CarbonEstimate.enrollment_id)
-    )
+    carbon_query = select(
+        CarbonEstimate.enrollment_id.label("enrollment_id"),
+        func.coalesce(func.sum(CarbonEstimate.co2e_tonnes), 0.0).label("co2e_tonnes"),
+        func.coalesce(func.sum(CarbonEstimate.net_credits), 0.0).label("net_credits"),
+    ).group_by(CarbonEstimate.enrollment_id)
     carbon_sub = carbon_query.subquery("carbon_sub")
 
     # 3. District Breakdown SQL Query: GROUP BY district, state
@@ -79,11 +77,15 @@ def get_analytics_summary(
             enrolled_sub.c.district,
             enrolled_sub.c.state,
             func.count(func.distinct(enrolled_sub.c.farmer_id)).label("farmers_count"),
-            func.coalesce(func.sum(enrolled_sub.c.area_acres), 0.0).label("total_acres"),
+            func.coalesce(func.sum(enrolled_sub.c.area_acres), 0.0).label(
+                "total_acres"
+            ),
             func.coalesce(func.sum(carbon_sub.c.co2e_tonnes), 0.0).label("total_co2e"),
             func.coalesce(func.sum(carbon_sub.c.net_credits), 0.0).label("net_credits"),
         )
-        .outerjoin(carbon_sub, enrolled_sub.c.enrollment_id == carbon_sub.c.enrollment_id)
+        .outerjoin(
+            carbon_sub, enrolled_sub.c.enrollment_id == carbon_sub.c.enrollment_id
+        )
         .group_by(enrolled_sub.c.district, enrolled_sub.c.state)
         .order_by(
             func.coalesce(func.sum(carbon_sub.c.net_credits), 0.0).desc(),
@@ -105,15 +107,14 @@ def get_analytics_summary(
     ]
 
     # 4. Overall Totals SQL Query (Single round-trip scalar aggregation)
-    totals_stmt = (
-        select(
-            func.count(func.distinct(enrolled_sub.c.farmer_id)).label("total_farmers"),
-            func.coalesce(func.sum(enrolled_sub.c.area_acres), 0.0).label("total_acres"),
-            func.coalesce(func.sum(carbon_sub.c.co2e_tonnes), 0.0).label("total_co2e"),
-            func.coalesce(func.sum(carbon_sub.c.net_credits), 0.0).label("total_net_credits"),
-        )
-        .outerjoin(carbon_sub, enrolled_sub.c.enrollment_id == carbon_sub.c.enrollment_id)
-    )
+    totals_stmt = select(
+        func.count(func.distinct(enrolled_sub.c.farmer_id)).label("total_farmers"),
+        func.coalesce(func.sum(enrolled_sub.c.area_acres), 0.0).label("total_acres"),
+        func.coalesce(func.sum(carbon_sub.c.co2e_tonnes), 0.0).label("total_co2e"),
+        func.coalesce(func.sum(carbon_sub.c.net_credits), 0.0).label(
+            "total_net_credits"
+        ),
+    ).outerjoin(carbon_sub, enrolled_sub.c.enrollment_id == carbon_sub.c.enrollment_id)
     totals_row = db.execute(totals_stmt).one()
 
     return AnalyticsSummaryResponse(
@@ -174,22 +175,19 @@ def get_carbon_timeseries(
             raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
 
     # SQL Window Function: Running total ordered by computed_at, id
-    stmt = (
-        select(
-            CarbonEstimate.id.label("estimate_id"),
-            CarbonEstimate.enrollment_id.label("enrollment_id"),
-            CarbonEstimate.computed_at.label("timestamp"),
-            CarbonEstimate.co2e_tonnes.label("co2e_tonnes"),
-            CarbonEstimate.net_credits.label("net_credits"),
-            func.sum(CarbonEstimate.co2e_tonnes)
-            .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
-            .label("cumulative_co2e"),
-            func.sum(CarbonEstimate.net_credits)
-            .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
-            .label("cumulative_net_credits"),
-        )
-        .join(Enrollment, CarbonEstimate.enrollment_id == Enrollment.id)
-    )
+    stmt = select(
+        CarbonEstimate.id.label("estimate_id"),
+        CarbonEstimate.enrollment_id.label("enrollment_id"),
+        CarbonEstimate.computed_at.label("timestamp"),
+        CarbonEstimate.co2e_tonnes.label("co2e_tonnes"),
+        CarbonEstimate.net_credits.label("net_credits"),
+        func.sum(CarbonEstimate.co2e_tonnes)
+        .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
+        .label("cumulative_co2e"),
+        func.sum(CarbonEstimate.net_credits)
+        .over(order_by=[CarbonEstimate.computed_at.asc(), CarbonEstimate.id.asc()])
+        .label("cumulative_net_credits"),
+    ).join(Enrollment, CarbonEstimate.enrollment_id == Enrollment.id)
 
     if project_id is not None:
         stmt = stmt.where(Enrollment.project_id == project_id)
@@ -273,49 +271,57 @@ def generate_carbon_estimates_csv(
     writer = csv.writer(output)
 
     # Header Row
-    writer.writerow([
-        "Estimate ID",
-        "Enrollment ID",
-        "Project ID",
-        "Project Name",
-        "Project Type",
-        "Farmer ID",
-        "Farmer Name",
-        "District",
-        "State",
-        "Parcel ID",
-        "Area (Acres)",
-        "Methodology",
-        "Version",
-        "Gross CO2e (Tonnes)",
-        "Uncertainty Ratio",
-        "Buffer Ratio",
-        "Net Credits (Tonnes CO2e)",
-        "Status",
-        "Computed At (UTC)",
-    ])
+    writer.writerow(
+        [
+            "Estimate ID",
+            "Enrollment ID",
+            "Project ID",
+            "Project Name",
+            "Project Type",
+            "Farmer ID",
+            "Farmer Name",
+            "District",
+            "State",
+            "Parcel ID",
+            "Area (Acres)",
+            "Methodology",
+            "Version",
+            "Gross CO2e (Tonnes)",
+            "Uncertainty Ratio",
+            "Buffer Ratio",
+            "Net Credits (Tonnes CO2e)",
+            "Status",
+            "Computed At (UTC)",
+        ]
+    )
 
     for r in rows:
-        writer.writerow([
-            r.estimate_id,
-            r.enrollment_id,
-            r.project_id,
-            r.project_name,
-            r.project_type.value if hasattr(r.project_type, "value") else str(r.project_type),
-            r.farmer_id,
-            r.farmer_name,
-            r.district,
-            r.state,
-            r.parcel_id,
-            round(float(r.area_acres), 2),
-            r.methodology_name,
-            r.methodology_version,
-            round(float(r.co2e_tonnes), 4),
-            round(float(r.uncertainty_pct), 4),
-            round(float(r.buffer_pct), 4),
-            round(float(r.net_credits), 4),
-            r.status.value if hasattr(r.status, "value") else str(r.status),
-            r.computed_at.isoformat() if hasattr(r.computed_at, "isoformat") else str(r.computed_at),
-        ])
+        writer.writerow(
+            [
+                r.estimate_id,
+                r.enrollment_id,
+                r.project_id,
+                r.project_name,
+                r.project_type.value
+                if hasattr(r.project_type, "value")
+                else str(r.project_type),
+                r.farmer_id,
+                r.farmer_name,
+                r.district,
+                r.state,
+                r.parcel_id,
+                round(float(r.area_acres), 2),
+                r.methodology_name,
+                r.methodology_version,
+                round(float(r.co2e_tonnes), 4),
+                round(float(r.uncertainty_pct), 4),
+                round(float(r.buffer_pct), 4),
+                round(float(r.net_credits), 4),
+                r.status.value if hasattr(r.status, "value") else str(r.status),
+                r.computed_at.isoformat()
+                if hasattr(r.computed_at, "isoformat")
+                else str(r.computed_at),
+            ]
+        )
 
     return output.getvalue()

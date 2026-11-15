@@ -1,7 +1,8 @@
 """Pydantic schemas for Observation entities, polymorphic values validation, and append-only audits."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Self
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.observation import ObservationType
@@ -54,7 +55,9 @@ class BiomassObservationValues(BaseModel):
     )
 
 
-def validate_observation_values(obs_type: ObservationType, values: dict[str, Any]) -> dict[str, Any]:
+def validate_observation_values(
+    obs_type: ObservationType, values: dict[str, Any]
+) -> dict[str, Any]:
     """Validate that the raw dictionary conforms to the required schema for its observation type."""
     if obs_type == ObservationType.SOIL:
         return SoilObservationValues.model_validate(values).model_dump()
@@ -89,8 +92,8 @@ class ObservationBase(BaseModel):
     @classmethod
     def validate_not_future(cls, v: datetime) -> datetime:
         """Reject future-dated observations per PROJECT_SPEC.md Section 6 Rule 7."""
-        now = datetime.now(timezone.utc)
-        v_utc = v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
+        now = datetime.now(UTC)
+        v_utc = v if v.tzinfo is not None else v.replace(tzinfo=UTC)
         if v_utc > now:
             raise ValueError("Observation timestamp cannot be in the future.")
         return v
@@ -101,7 +104,9 @@ class ObservationBase(BaseModel):
         try:
             self.values = validate_observation_values(self.type, self.values)
         except Exception as exc:
-            raise ValueError(f"Invalid values for {self.type.value} observation: {exc}") from exc
+            raise ValueError(
+                f"Invalid values for {self.type.value} observation: {exc}"
+            ) from exc
         return self
 
 
@@ -134,8 +139,8 @@ class ObservationCorrectionCreate(BaseModel):
     @classmethod
     def validate_not_future(cls, v: datetime) -> datetime:
         """Reject future dates."""
-        now = datetime.now(timezone.utc)
-        v_utc = v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
+        now = datetime.now(UTC)
+        v_utc = v if v.tzinfo is not None else v.replace(tzinfo=UTC)
         if v_utc > now:
             raise ValueError("Observation timestamp cannot be in the future.")
         return v

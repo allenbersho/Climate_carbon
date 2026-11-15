@@ -30,3 +30,33 @@ addopts = "-v --tb=short"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+exclude = [
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "alembic/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by ruff formatter)
+    "B008",  # do not perform function calls in argument defaults (FastAPI Depends/Query pattern)
+    "W191",  # indentation contains tabs
+    "B904",  # raise ... from err
+    "UP042", # replace str, Enum with StrEnum (SQLAlchemy 2.0 Enum mapping uses (str, enum.Enum))
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/tests/*" = ["S101", "B011", "UP017", "F401", "F841"]
+"app/schemas/__init__.py" = ["F401"]
+"alembic/*" = ["I001", "UP035", "F401"]
+"scripts/*" = ["BLE001", "E402"]

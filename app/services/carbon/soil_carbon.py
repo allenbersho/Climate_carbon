@@ -1,6 +1,7 @@
 """Soil Organic Carbon (SOC) removal calculator implementation."""
 
 from typing import Any
+
 from app.services.carbon.base import BaseCalculator, CalculationResult
 
 
@@ -65,7 +66,9 @@ class SoilCarbonCalculator(BaseCalculator):
                 "Missing baseline soil parameters: 'soc_percent', 'bulk_density', and 'depth_cm' are required."
             )
         if b_soc <= 0 or b_bd <= 0 or b_depth <= 0:
-            raise ValueError("Baseline soil parameters must be strictly positive numbers.")
+            raise ValueError(
+                "Baseline soil parameters must be strictly positive numbers."
+            )
 
         # 3. Extract current monitoring values
         current_data = inputs.get("current", {})
@@ -81,32 +84,44 @@ class SoilCarbonCalculator(BaseCalculator):
                 "Missing current soil parameters: 'soc_percent', 'bulk_density', and 'depth_cm' are required."
             )
         if c_soc <= 0 or c_bd <= 0 or c_depth <= 0:
-            raise ValueError("Current soil parameters must be strictly positive numbers.")
+            raise ValueError(
+                "Current soil parameters must be strictly positive numbers."
+            )
 
         # 4. Extract methodology parameters
         acres_to_ha = parameters.get("acres_to_hectares", 0.404686)
         if not isinstance(acres_to_ha, (int, float)) or acres_to_ha <= 0:
-            raise ValueError(f"Acres to hectares conversion factor must be positive, got {acres_to_ha!r}.")
+            raise ValueError(
+                f"Acres to hectares conversion factor must be positive, got {acres_to_ha!r}."
+            )
         acres_to_ha = float(acres_to_ha)
 
         co2_to_c_ratio = parameters.get("co2_to_c_ratio", 44.0 / 12.0)
         if not isinstance(co2_to_c_ratio, (int, float)) or co2_to_c_ratio <= 0:
-            raise ValueError(f"CO2 to C ratio must be positive, got {co2_to_c_ratio!r}.")
+            raise ValueError(
+                f"CO2 to C ratio must be positive, got {co2_to_c_ratio!r}."
+            )
         co2_to_c_ratio = float(co2_to_c_ratio)
 
         # 5. Deductions
         uncertainty_pct = inputs.get("uncertainty_pct")
         if uncertainty_pct is None:
             uncertainty_pct = parameters.get("default_uncertainty_pct", 0.15)
-        if not isinstance(uncertainty_pct, (int, float)) or not (0 <= uncertainty_pct < 1):
-            raise ValueError(f"Uncertainty percentage must be in [0, 1), got {uncertainty_pct!r}.")
+        if not isinstance(uncertainty_pct, (int, float)) or not (
+            0 <= uncertainty_pct < 1
+        ):
+            raise ValueError(
+                f"Uncertainty percentage must be in [0, 1), got {uncertainty_pct!r}."
+            )
         uncertainty_pct = float(uncertainty_pct)
 
         buffer_pct = inputs.get("buffer_pct")
         if buffer_pct is None:
             buffer_pct = parameters.get("default_buffer_pct", 0.20)
         if not isinstance(buffer_pct, (int, float)) or not (0 <= buffer_pct < 1):
-            raise ValueError(f"Buffer percentage must be in [0, 1), got {buffer_pct!r}.")
+            raise ValueError(
+                f"Buffer percentage must be in [0, 1), got {buffer_pct!r}."
+            )
         buffer_pct = float(buffer_pct)
 
         # 6. Core Mathematical Computations
@@ -125,13 +140,23 @@ class SoilCarbonCalculator(BaseCalculator):
         else:
             total_carbon_tonnes = delta_soc_t_per_ha * area_ha
             co2e_gross_tonnes = total_carbon_tonnes * co2_to_c_ratio
-            net_credits = co2e_gross_tonnes * (1.0 - uncertainty_pct) * (1.0 - buffer_pct)
+            net_credits = (
+                co2e_gross_tonnes * (1.0 - uncertainty_pct) * (1.0 - buffer_pct)
+            )
 
         inputs_snapshot = {
             "inputs": {
                 "area_acres": area_acres,
-                "baseline": {"soc_percent": b_soc, "bulk_density": b_bd, "depth_cm": b_depth},
-                "current": {"soc_percent": c_soc, "bulk_density": c_bd, "depth_cm": c_depth},
+                "baseline": {
+                    "soc_percent": b_soc,
+                    "bulk_density": b_bd,
+                    "depth_cm": b_depth,
+                },
+                "current": {
+                    "soc_percent": c_soc,
+                    "bulk_density": c_bd,
+                    "depth_cm": c_depth,
+                },
                 "uncertainty_pct": uncertainty_pct,
                 "buffer_pct": buffer_pct,
             },

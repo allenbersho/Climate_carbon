@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -21,7 +21,9 @@ class AuditLog(Base):
         nullable=True,
         index=True,
     )
-    user_email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    user_email: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     entity_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

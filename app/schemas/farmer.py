@@ -1,17 +1,28 @@
 """Pydantic schemas for Farmer entities."""
 
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FarmerBase(BaseModel):
     """Shared baseline properties for a farmer."""
 
-    name: str = Field(..., min_length=2, max_length=255, description="Full name of the farmer")
-    phone: str | None = Field(default=None, max_length=50, description="Contact phone number")
-    village: str | None = Field(default=None, max_length=255, description="Village name")
-    district: str | None = Field(default=None, max_length=255, description="Administrative district")
-    state: str | None = Field(default=None, max_length=255, description="State / Province")
+    name: str = Field(
+        ..., min_length=2, max_length=255, description="Full name of the farmer"
+    )
+    phone: str | None = Field(
+        default=None, max_length=50, description="Contact phone number"
+    )
+    village: str | None = Field(
+        default=None, max_length=255, description="Village name"
+    )
+    district: str | None = Field(
+        default=None, max_length=255, description="Administrative district"
+    )
+    state: str | None = Field(
+        default=None, max_length=255, description="State / Province"
+    )
 
 
 class FarmerCreate(FarmerBase):
@@ -29,7 +40,9 @@ class FarmerCreate(FarmerBase):
     @classmethod
     def validate_consent_required(cls, v: bool) -> bool:
         if not v:
-            raise ValueError("Farmer consent must be recorded as True to enroll in CarbonTrack")
+            raise ValueError(
+                "Farmer consent must be recorded as True to enroll in CarbonTrack"
+            )
         return v
 
 
@@ -67,17 +80,29 @@ class FarmerListResponse(BaseModel):
 class FarmerImportRowError(BaseModel):
     """Details of a single CSV row validation failure during bulk import."""
 
-    row_number: int = Field(..., description="1-indexed row number in the CSV file (row 1 is header)")
-    data: dict[str, str | None] = Field(..., description="Raw row values parsed from the CSV")
-    reason: str = Field(..., description="Description of why this row failed validation")
+    row_number: int = Field(
+        ..., description="1-indexed row number in the CSV file (row 1 is header)"
+    )
+    data: dict[str, str | None] = Field(
+        ..., description="Raw row values parsed from the CSV"
+    )
+    reason: str = Field(
+        ..., description="Description of why this row failed validation"
+    )
 
 
 class FarmerBulkImportResult(BaseModel):
     """Aggregated outcome of a CSV bulk farmer import operation."""
 
-    total_rows: int = Field(..., description="Total data rows evaluated (excluding header)")
-    imported_count: int = Field(..., description="Number of valid farmer records successfully created")
-    failed_count: int = Field(..., description="Number of rows rejected due to validation errors")
+    total_rows: int = Field(
+        ..., description="Total data rows evaluated (excluding header)"
+    )
+    imported_count: int = Field(
+        ..., description="Number of valid farmer records successfully created"
+    )
+    failed_count: int = Field(
+        ..., description="Number of rows rejected due to validation errors"
+    )
     errors: list[FarmerImportRowError] = Field(
         default_factory=list,
         description="Detailed list of error diagnostics for each rejected row",

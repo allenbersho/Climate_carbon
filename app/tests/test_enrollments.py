@@ -7,7 +7,9 @@ from app.models.project import ProjectType
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -45,7 +47,12 @@ def _setup_entities(
     # 1. Create Farmer (actor: officer or admin)
     farmer_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Ramesh Gowda", "district": "Mandya", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Ramesh Gowda",
+            "district": "Mandya",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=actor_headers,
     )
     farmer_id = farmer_res.json()["id"]
@@ -75,9 +82,15 @@ def _setup_entities(
 
 def test_create_enrollment_success(client: TestClient) -> None:
     """Verify field officer can create an active enrollment linking parcel to project."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll1@carbontrack.org", UserRole.FIELD_OFFICER)
-    farmer_id, parcel_id, project_id = _setup_entities(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    farmer_id, parcel_id, project_id = _setup_entities(
+        client, officer_headers, admin_headers
+    )
 
     payload = {
         "project_id": project_id,
@@ -99,10 +112,16 @@ def test_create_enrollment_success(client: TestClient) -> None:
     assert data["id"] is not None
 
 
-def test_duplicate_active_enrollment_same_project_type_rejected_409(client: TestClient) -> None:
+def test_duplicate_active_enrollment_same_project_type_rejected_409(
+    client: TestClient,
+) -> None:
     """Verify Rule 2: A parcel cannot be in two ACTIVE enrollments of the same project type (409 Conflict)."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id, parcel_id, project1_id = _setup_entities(
         client, officer_headers, admin_headers, ProjectType.AFFORESTATION
     )
@@ -110,7 +129,11 @@ def test_duplicate_active_enrollment_same_project_type_rejected_409(client: Test
     # Admin creates second afforestation project
     p2_res = client.post(
         "/api/v1/projects",
-        json={"name": "Cauvery Afforestation Phase 2", "type": "afforestation", "start_date": "2026-06-01"},
+        json={
+            "name": "Cauvery Afforestation Phase 2",
+            "type": "afforestation",
+            "start_date": "2026-06-01",
+        },
         headers=admin_headers,
     )
     project2_id = p2_res.json()["id"]
@@ -147,8 +170,12 @@ def test_duplicate_active_enrollment_same_project_type_rejected_409(client: Test
 
 def test_active_enrollment_different_project_types_allowed(client: TestClient) -> None:
     """Verify a parcel CAN be actively enrolled in two projects if they have DIFFERENT project types."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll3@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id, parcel_id, afforestation_project_id = _setup_entities(
         client, officer_headers, admin_headers, ProjectType.AFFORESTATION
     )
@@ -156,7 +183,11 @@ def test_active_enrollment_different_project_types_allowed(client: TestClient) -
     # Admin creates a regenerative agriculture project
     regen_res = client.post(
         "/api/v1/projects",
-        json={"name": "Deccan Soil Regeneration", "type": "regen_ag", "start_date": "2026-01-01"},
+        json={
+            "name": "Deccan Soil Regeneration",
+            "type": "regen_ag",
+            "start_date": "2026-01-01",
+        },
         headers=admin_headers,
     )
     regen_project_id = regen_res.json()["id"]
@@ -191,8 +222,12 @@ def test_active_enrollment_different_project_types_allowed(client: TestClient) -
 
 def test_enrollment_after_previous_terminated_succeeds(client: TestClient) -> None:
     """Verify a parcel can be enrolled in another project of same type if prior enrollment is terminated."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll4@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id, parcel_id, project1_id = _setup_entities(
         client, officer_headers, admin_headers, ProjectType.BIOCHAR
     )
@@ -200,7 +235,11 @@ def test_enrollment_after_previous_terminated_succeeds(client: TestClient) -> No
     # Project 2 (also Biochar) created by admin
     p2_res = client.post(
         "/api/v1/projects",
-        json={"name": "Biochar Hub South", "type": "biochar", "start_date": "2026-05-01"},
+        json={
+            "name": "Biochar Hub South",
+            "type": "biochar",
+            "start_date": "2026-05-01",
+        },
         headers=admin_headers,
     )
     project2_id = p2_res.json()["id"]
@@ -240,10 +279,16 @@ def test_enrollment_after_previous_terminated_succeeds(client: TestClient) -> No
     assert res2.json()["status"] == "active"
 
 
-def test_update_pending_enrollment_to_active_conflict_rejected_409(client: TestClient) -> None:
+def test_update_pending_enrollment_to_active_conflict_rejected_409(
+    client: TestClient,
+) -> None:
     """Verify updating a pending enrollment to active triggers 409 if active conflict exists."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll5@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     farmer_id, parcel_id, project1_id = _setup_entities(
         client, officer_headers, admin_headers, ProjectType.AFFORESTATION
     )
@@ -251,7 +296,11 @@ def test_update_pending_enrollment_to_active_conflict_rejected_409(client: TestC
     # Project 2 of same type created by admin
     p2_res = client.post(
         "/api/v1/projects",
-        json={"name": "Afforestation Beta", "type": "afforestation", "start_date": "2026-07-01"},
+        json={
+            "name": "Afforestation Beta",
+            "type": "afforestation",
+            "start_date": "2026-07-01",
+        },
         headers=admin_headers,
     )
     project2_id = p2_res.json()["id"]
@@ -259,14 +308,24 @@ def test_update_pending_enrollment_to_active_conflict_rejected_409(client: TestC
     # Active enrollment in Project 1
     client.post(
         "/api/v1/enrollments",
-        json={"project_id": project1_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project1_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     )
 
     # Pending enrollment in Project 2 (allowed to exist as pending)
     pending_res = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project2_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "pending"},
+        json={
+            "project_id": project2_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "pending",
+        },
         headers=officer_headers,
     )
     assert pending_res.status_code == status.HTTP_201_CREATED
@@ -284,14 +343,25 @@ def test_update_pending_enrollment_to_active_conflict_rejected_409(client: TestC
 
 def test_enrollment_validation_parcel_farmer_mismatch_422(client: TestClient) -> None:
     """Verify enrolling a parcel with a mismatched farmer_id is rejected with 422."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll6@carbontrack.org", UserRole.FIELD_OFFICER)
-    farmer1_id, parcel1_id, project_id = _setup_entities(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll6@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    farmer1_id, parcel1_id, project_id = _setup_entities(
+        client, officer_headers, admin_headers
+    )
 
     # Create a second farmer
     farmer2_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Shantha Kumar", "district": "Shimoga", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Shantha Kumar",
+            "district": "Shimoga",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     )
     farmer2_id = farmer2_res.json()["id"]
@@ -313,9 +383,15 @@ def test_enrollment_validation_parcel_farmer_mismatch_422(client: TestClient) ->
 
 def test_get_and_list_enrollments(client: TestClient) -> None:
     """Verify get by id, not found, and paginated listing with filters."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.enroll7@carbontrack.org", UserRole.FIELD_OFFICER)
-    farmer_id, parcel_id, project_id = _setup_entities(client, officer_headers, admin_headers)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.enroll7@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    farmer_id, parcel_id, project_id = _setup_entities(
+        client, officer_headers, admin_headers
+    )
 
     create_res = client.post(
         "/api/v1/enrollments",
@@ -331,15 +407,23 @@ def test_get_and_list_enrollments(client: TestClient) -> None:
     enrollment_id = create_res.json()["id"]
 
     # Get by ID
-    get_res = client.get(f"/api/v1/enrollments/{enrollment_id}", headers=officer_headers)
+    get_res = client.get(
+        f"/api/v1/enrollments/{enrollment_id}", headers=officer_headers
+    )
     assert get_res.status_code == status.HTTP_200_OK
     assert get_res.json()["id"] == enrollment_id
 
     # Not found -> 404
-    assert client.get("/api/v1/enrollments/99999", headers=officer_headers).status_code == status.HTTP_404_NOT_FOUND
+    assert (
+        client.get("/api/v1/enrollments/99999", headers=officer_headers).status_code
+        == status.HTTP_404_NOT_FOUND
+    )
 
     # List with filters
-    list_res = client.get(f"/api/v1/enrollments?project_id={project_id}&status=active", headers=officer_headers)
+    list_res = client.get(
+        f"/api/v1/enrollments?project_id={project_id}&status=active",
+        headers=officer_headers,
+    )
     assert list_res.status_code == status.HTTP_200_OK
     assert list_res.json()["total"] == 1
     assert list_res.json()["items"][0]["id"] == enrollment_id
@@ -347,23 +431,41 @@ def test_get_and_list_enrollments(client: TestClient) -> None:
 
 def test_enrollment_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Officer can create, Verifier can read but not write, Unauthenticated gets 401."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac_e@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac_e@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac_e@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac_e@carbontrack.org", UserRole.VERIFIER
+    )
 
-    farmer_id, parcel_id, project_id = _setup_entities(client, admin_headers, admin_headers)
+    farmer_id, parcel_id, project_id = _setup_entities(
+        client, admin_headers, admin_headers
+    )
 
     # 1. Field officer creates enrollment -> 201
     create_res = client.post(
         "/api/v1/enrollments",
-        json={"project_id": project_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": project_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     )
     assert create_res.status_code == status.HTTP_201_CREATED
     enrollment_id = create_res.json()["id"]
 
     # 2. Verifier can read -> 200
-    assert client.get(f"/api/v1/enrollments/{enrollment_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(
+            f"/api/v1/enrollments/{enrollment_id}", headers=verifier_headers
+        ).status_code
+        == status.HTTP_200_OK
+    )
 
     # 3. Verifier cannot create enrollment -> 403 Forbidden
     ver_create = client.post(

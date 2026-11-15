@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.carbon_estimate import EstimateStatus
@@ -33,12 +34,25 @@ class CarbonEstimateRead(BaseModel):
         ...,
         description="Audit snapshot of all observations and methodology parameters used in the calculation",
     )
-    co2e_tonnes: float = Field(..., description="Gross greenhouse gas removals in tonnes CO2e")
-    uncertainty_pct: float = Field(..., description="Deduction ratio for measurement variance (e.g. 0.10 for 10%)")
-    buffer_pct: float = Field(..., description="Withholding ratio for permanence risk buffer (e.g. 0.15 for 15%)")
-    net_credits: float = Field(..., description="Net issued credits in metric tonnes CO2e")
-    status: EstimateStatus = Field(..., description="Lifecycle status (draft, verified, issued)")
-    computed_at: datetime = Field(..., description="UTC timestamp when estimate was executed")
+    co2e_tonnes: float = Field(
+        ..., description="Gross greenhouse gas removals in tonnes CO2e"
+    )
+    uncertainty_pct: float = Field(
+        ..., description="Deduction ratio for measurement variance (e.g. 0.10 for 10%)"
+    )
+    buffer_pct: float = Field(
+        ...,
+        description="Withholding ratio for permanence risk buffer (e.g. 0.15 for 15%)",
+    )
+    net_credits: float = Field(
+        ..., description="Net issued credits in metric tonnes CO2e"
+    )
+    status: EstimateStatus = Field(
+        ..., description="Lifecycle status (draft, verified, issued)"
+    )
+    computed_at: datetime = Field(
+        ..., description="UTC timestamp when estimate was executed"
+    )
 
 
 class CarbonEstimateListResponse(BaseModel):

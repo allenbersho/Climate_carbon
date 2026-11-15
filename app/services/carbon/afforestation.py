@@ -1,6 +1,7 @@
 """Afforestation carbon removal calculator implementation."""
 
 from typing import Any
+
 from app.services.carbon.base import BaseCalculator, CalculationResult
 
 
@@ -43,9 +44,13 @@ class AfforestationCalculator(BaseCalculator):
         if tree_count is None:
             tree_count = inputs.get("tree_count")
         if tree_count is None:
-            raise ValueError("Afforestation calculation requires 'trees' or 'tree_count' in inputs.")
+            raise ValueError(
+                "Afforestation calculation requires 'trees' or 'tree_count' in inputs."
+            )
         if not isinstance(tree_count, (int, float)) or tree_count < 0:
-            raise ValueError(f"Tree count must be a non-negative number, got {tree_count!r}.")
+            raise ValueError(
+                f"Tree count must be a non-negative number, got {tree_count!r}."
+            )
         tree_count = float(tree_count)
 
         # 2. Extract biomass per tree
@@ -53,33 +58,47 @@ class AfforestationCalculator(BaseCalculator):
         if avg_biomass_kg is None:
             avg_biomass_kg = parameters.get("default_biomass_per_tree_kg", 50.0)
         if not isinstance(avg_biomass_kg, (int, float)) or avg_biomass_kg <= 0:
-            raise ValueError(f"Average biomass per tree must be positive, got {avg_biomass_kg!r}.")
+            raise ValueError(
+                f"Average biomass per tree must be positive, got {avg_biomass_kg!r}."
+            )
         avg_biomass_kg = float(avg_biomass_kg)
 
         # 3. Extract methodology coefficients
         carbon_fraction = parameters.get("carbon_fraction", 0.47)
-        if not isinstance(carbon_fraction, (int, float)) or not (0 < carbon_fraction <= 1):
-            raise ValueError(f"Carbon fraction must be in range (0, 1], got {carbon_fraction!r}.")
+        if not isinstance(carbon_fraction, (int, float)) or not (
+            0 < carbon_fraction <= 1
+        ):
+            raise ValueError(
+                f"Carbon fraction must be in range (0, 1], got {carbon_fraction!r}."
+            )
         carbon_fraction = float(carbon_fraction)
 
         co2_to_c_ratio = parameters.get("co2_to_c_ratio", 44.0 / 12.0)
         if not isinstance(co2_to_c_ratio, (int, float)) or co2_to_c_ratio <= 0:
-            raise ValueError(f"CO2 to C ratio must be positive, got {co2_to_c_ratio!r}.")
+            raise ValueError(
+                f"CO2 to C ratio must be positive, got {co2_to_c_ratio!r}."
+            )
         co2_to_c_ratio = float(co2_to_c_ratio)
 
         # 4. Extract deduction percentages
         uncertainty_pct = inputs.get("uncertainty_pct")
         if uncertainty_pct is None:
             uncertainty_pct = parameters.get("default_uncertainty_pct", 0.10)
-        if not isinstance(uncertainty_pct, (int, float)) or not (0 <= uncertainty_pct < 1):
-            raise ValueError(f"Uncertainty percentage must be in [0, 1), got {uncertainty_pct!r}.")
+        if not isinstance(uncertainty_pct, (int, float)) or not (
+            0 <= uncertainty_pct < 1
+        ):
+            raise ValueError(
+                f"Uncertainty percentage must be in [0, 1), got {uncertainty_pct!r}."
+            )
         uncertainty_pct = float(uncertainty_pct)
 
         buffer_pct = inputs.get("buffer_pct")
         if buffer_pct is None:
             buffer_pct = parameters.get("default_buffer_pct", 0.15)
         if not isinstance(buffer_pct, (int, float)) or not (0 <= buffer_pct < 1):
-            raise ValueError(f"Buffer percentage must be in [0, 1), got {buffer_pct!r}.")
+            raise ValueError(
+                f"Buffer percentage must be in [0, 1), got {buffer_pct!r}."
+            )
         buffer_pct = float(buffer_pct)
 
         # 5. Core Mathematical Computation

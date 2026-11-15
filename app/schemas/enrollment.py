@@ -1,6 +1,7 @@
 """Pydantic schemas for Enrollment entities."""
 
 from datetime import date, datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enrollment import EnrollmentStatus

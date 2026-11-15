@@ -1,6 +1,7 @@
 """Carbon estimation service orchestrating data gathering, validation filtering, and pure calculator execution."""
 
 from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -50,7 +51,9 @@ def _get_valid_active_observations(
             Observation.enrollment_id == enrollment_id,
             Observation.type == obs_type,
             Observation.superseded_by.is_(None),
-            ~Observation.validation_issues.any(ValidationIssue.severity == ValidationSeverity.ERROR),
+            ~Observation.validation_issues.any(
+                ValidationIssue.severity == ValidationSeverity.ERROR
+            ),
         )
         .order_by(Observation.observed_at.asc(), Observation.id.asc())
     )
@@ -81,9 +84,13 @@ def resolve_methodology_for_project(
 
     # Fallback to standard active default methodology based on project type
     if project.type == ProjectType.AFFORESTATION:
-        methodology = get_methodology_by_name_and_version(db, name="Afforestation", version="v1")
+        methodology = get_methodology_by_name_and_version(
+            db, name="Afforestation", version="v1"
+        )
     elif project.type == ProjectType.REGEN_AG:
-        methodology = get_methodology_by_name_and_version(db, name="Soil Carbon", version="v1")
+        methodology = get_methodology_by_name_and_version(
+            db, name="Soil Carbon", version="v1"
+        )
     else:
         raise UnsupportedProjectTypeError(
             f"No default methodology configured for project type '{project.type.value}'."
@@ -126,11 +133,15 @@ def create_carbon_estimate(
 
     project = db.get(Project, enrollment.project_id)
     if not project:
-        raise ValueError(f"Project with ID {enrollment.project_id} not found for enrollment {enrollment_id}.")
+        raise ValueError(
+            f"Project with ID {enrollment.project_id} not found for enrollment {enrollment_id}."
+        )
 
     parcel = db.get(LandParcel, enrollment.parcel_id)
     if not parcel:
-        raise ValueError(f"Land parcel with ID {enrollment.parcel_id} not found for enrollment {enrollment_id}.")
+        raise ValueError(
+            f"Land parcel with ID {enrollment.parcel_id} not found for enrollment {enrollment_id}."
+        )
 
     # 1. Determine observation type
     if project.type == ProjectType.AFFORESTATION:
@@ -143,7 +154,9 @@ def create_carbon_estimate(
         )
 
     # 2. Gather valid observations excluding error-flagged records (Rule 4)
-    valid_observations = _get_valid_active_observations(db, enrollment_id=enrollment_id, obs_type=obs_type)
+    valid_observations = _get_valid_active_observations(
+        db, enrollment_id=enrollment_id, obs_type=obs_type
+    )
 
     # 3. Enforce Rule 3: Baseline observation + at least one later observation
     baseline_obs = next((o for o in valid_observations if o.is_baseline), None)
@@ -154,7 +167,9 @@ def create_carbon_estimate(
         )
 
     later_observations = [
-        o for o in valid_observations if not o.is_baseline and o.observed_at > baseline_obs.observed_at
+        o
+        for o in valid_observations
+        if not o.is_baseline and o.observed_at > baseline_obs.observed_at
     ]
     if not later_observations:
         raise InsufficientObservationsError(
@@ -178,7 +193,9 @@ def create_carbon_estimate(
         inputs: dict[str, Any] = {
             "trees": latest_monitoring.values.get("count", 0),
         }
-        calc_result = calculator.calculate(inputs=inputs, parameters=methodology.parameters)
+        calc_result = calculator.calculate(
+            inputs=inputs, parameters=methodology.parameters
+        )
 
     elif project.type == ProjectType.REGEN_AG:
         calculator = SoilCarbonCalculator()
@@ -187,7 +204,9 @@ def create_carbon_estimate(
             "baseline": baseline_obs.values,
             "current": latest_monitoring.values,
         }
-        calc_result = calculator.calculate(inputs=inputs, parameters=methodology.parameters)
+        calc_result = calculator.calculate(
+            inputs=inputs, parameters=methodology.parameters
+        )
 
     # 6. Assemble complete inputs_snapshot for permanent audit reproducibility (Rule 5)
     snapshot = dict(calc_result.inputs_snapshot)
@@ -241,9 +260,8 @@ def get_estimates_by_enrollment(
     if not enrollment:
         raise EnrollmentNotFoundError(f"Enrollment with ID {enrollment_id} not found.")
 
-    base_query = (
-        select(CarbonEstimate)
-        .where(CarbonEstimate.enrollment_id == enrollment_id)
+    base_query = select(CarbonEstimate).where(
+        CarbonEstimate.enrollment_id == enrollment_id
     )
 
     count_stmt = select(func.count()).select_from(base_query.subquery())

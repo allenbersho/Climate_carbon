@@ -1,16 +1,16 @@
 """Activity database model recording field interventions linked to enrollments."""
 
-from datetime import date, datetime
 import enum
-from typing import Any, TYPE_CHECKING
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     Date,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
-    JSON,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship

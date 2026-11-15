@@ -7,7 +7,9 @@ from app.models.project import ProjectStatus, ProjectType
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to register and login a user with a specific role, returning auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -37,7 +39,9 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_create_project_success(client: TestClient) -> None:
     """Verify administrator can initialize a project in DRAFT status."""
-    admin_headers = _create_user_and_login(client, "admin1@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin1@carbontrack.org", UserRole.ADMIN
+    )
 
     payload = {
         "name": "Cauvery Delta Afforestation",
@@ -55,7 +59,9 @@ def test_create_project_success(client: TestClient) -> None:
 
 def test_get_project_by_id(client: TestClient) -> None:
     """Verify fetching an existing project by ID returns 200 OK."""
-    admin_headers = _create_user_and_login(client, "admin2@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin2@carbontrack.org", UserRole.ADMIN
+    )
 
     create_res = client.post(
         "/api/v1/projects",
@@ -71,7 +77,9 @@ def test_get_project_by_id(client: TestClient) -> None:
 
 def test_get_project_not_found(client: TestClient) -> None:
     """Verify requesting a non-existent project returns 404 Not Found."""
-    admin_headers = _create_user_and_login(client, "admin3@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin3@carbontrack.org", UserRole.ADMIN
+    )
     response = client.get("/api/v1/projects/88888", headers=admin_headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["error"]["code"] == "NOT_FOUND"
@@ -79,12 +87,17 @@ def test_get_project_not_found(client: TestClient) -> None:
 
 def test_list_projects_pagination_and_filters(client: TestClient) -> None:
     """Verify project list pagination, status/type filtering, and substring search."""
-    admin_headers = _create_user_and_login(client, "admin4@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin4@carbontrack.org", UserRole.ADMIN
+    )
 
     # Seed 3 projects
     client.post(
         "/api/v1/projects",
-        json={"name": "Western Ghats Rewilding", "type": ProjectType.AFFORESTATION.value},
+        json={
+            "name": "Western Ghats Rewilding",
+            "type": ProjectType.AFFORESTATION.value,
+        },
         headers=admin_headers,
     )
     p2 = client.post(
@@ -128,7 +141,9 @@ def test_list_projects_pagination_and_filters(client: TestClient) -> None:
 
 def test_status_lifecycle_transitions(client: TestClient) -> None:
     """Verify the valid status sequence: draft -> active -> closed."""
-    admin_headers = _create_user_and_login(client, "admin5@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin5@carbontrack.org", UserRole.ADMIN
+    )
 
     create_res = client.post(
         "/api/v1/projects",
@@ -159,7 +174,9 @@ def test_status_lifecycle_transitions(client: TestClient) -> None:
 
 def test_invalid_status_transitions_rejected(client: TestClient) -> None:
     """Verify that skipping forward or skipping back is strictly rejected with 400 Bad Request."""
-    admin_headers = _create_user_and_login(client, "admin6@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "admin6@carbontrack.org", UserRole.ADMIN
+    )
 
     # 1. Rejection: Skipping directly from draft -> closed
     p1 = client.post(
@@ -174,7 +191,10 @@ def test_invalid_status_transitions_rejected(client: TestClient) -> None:
         headers=admin_headers,
     )
     assert skip_forward_res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Invalid project status transition" in skip_forward_res.json()["error"]["message"]
+    assert (
+        "Invalid project status transition"
+        in skip_forward_res.json()["error"]["message"]
+    )
 
     # 2. Advance p1 to active
     client.patch(
@@ -190,7 +210,9 @@ def test_invalid_status_transitions_rejected(client: TestClient) -> None:
         headers=admin_headers,
     )
     assert skip_back_res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Invalid project status transition" in skip_back_res.json()["error"]["message"]
+    assert (
+        "Invalid project status transition" in skip_back_res.json()["error"]["message"]
+    )
 
     # 4. Advance to closed
     client.patch(
@@ -211,9 +233,15 @@ def test_invalid_status_transitions_rejected(client: TestClient) -> None:
 
 def test_project_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Only admins can create/update projects; Officers and Verifiers can read."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.proj@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.proj@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.proj@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.proj@carbontrack.org", UserRole.VERIFIER
+    )
 
     # 1. Admin creates project (201)
     create_res = client.post(
@@ -241,9 +269,22 @@ def test_project_role_permissions(client: TestClient) -> None:
     assert verifier_create.status_code == status.HTTP_403_FORBIDDEN
 
     # 4. Both Field Officer and Verifier CAN read projects (200 OK)
-    assert client.get(f"/api/v1/projects/{project_id}", headers=officer_headers).status_code == status.HTTP_200_OK
-    assert client.get(f"/api/v1/projects/{project_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
-    assert client.get("/api/v1/projects", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(
+            f"/api/v1/projects/{project_id}", headers=officer_headers
+        ).status_code
+        == status.HTTP_200_OK
+    )
+    assert (
+        client.get(
+            f"/api/v1/projects/{project_id}", headers=verifier_headers
+        ).status_code
+        == status.HTTP_200_OK
+    )
+    assert (
+        client.get("/api/v1/projects", headers=verifier_headers).status_code
+        == status.HTTP_200_OK
+    )
 
     # 5. Field Officer CANNOT update project (403 Forbidden)
     officer_update = client.patch(

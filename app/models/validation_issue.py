@@ -1,7 +1,7 @@
 """Validation issue database model storing rule violations and audit flags."""
 
-from datetime import datetime
 import enum
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -70,7 +70,9 @@ class ValidationIssue(Base):
     )
 
     # Relationship to the monitored observation
-    observation: Mapped["Observation"] = relationship("Observation", back_populates="validation_issues")
+    observation: Mapped["Observation"] = relationship(
+        "Observation", back_populates="validation_issues"
+    )
 
     def __repr__(self) -> str:
         return (

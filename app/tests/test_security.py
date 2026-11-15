@@ -1,6 +1,7 @@
 """Unit tests for Argon2 password hashing and JWT security functions."""
 
 from datetime import timedelta
+
 import jwt
 import pytest
 

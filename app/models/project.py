@@ -1,7 +1,7 @@
 """Project database model and status enumeration."""
 
-from datetime import date, datetime
 import enum
+from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column

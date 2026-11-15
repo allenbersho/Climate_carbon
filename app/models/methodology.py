@@ -4,10 +4,10 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
     func,
@@ -30,7 +30,9 @@ class Methodology(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     version: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

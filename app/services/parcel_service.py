@@ -3,7 +3,6 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.farmer import Farmer
 from app.models.land_parcel import LandParcel
 from app.schemas.land_parcel import LandParcelCreate, LandParcelUpdate
 from app.services import farmer_service
@@ -69,10 +68,14 @@ def list_parcels(
         base_query = base_query.where(LandParcel.farmer_id == farmer_id)
 
     if crop and crop.strip():
-        base_query = base_query.where(func.lower(LandParcel.crop) == crop.strip().lower())
+        base_query = base_query.where(
+            func.lower(LandParcel.crop) == crop.strip().lower()
+        )
 
     if soil_type and soil_type.strip():
-        base_query = base_query.where(func.lower(LandParcel.soil_type) == soil_type.strip().lower())
+        base_query = base_query.where(
+            func.lower(LandParcel.soil_type) == soil_type.strip().lower()
+        )
 
     count_statement = select(func.count()).select_from(base_query.subquery())
     total = db.execute(count_statement).scalar_one() or 0
@@ -108,7 +111,9 @@ def get_parcels_by_farmer(db: Session, farmer_id: int) -> list[LandParcel]:
     return list(db.execute(statement).scalars().all())
 
 
-def update_parcel(db: Session, parcel: LandParcel, update_in: LandParcelUpdate) -> LandParcel:
+def update_parcel(
+    db: Session, parcel: LandParcel, update_in: LandParcelUpdate
+) -> LandParcel:
     """Apply partial updates to parcel attributes.
 
     Why: Allows updating acreage, soil classification, or current crop.

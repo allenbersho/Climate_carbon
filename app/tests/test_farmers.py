@@ -8,7 +8,9 @@ from app.models.farmer import Farmer
 from app.models.user import UserRole
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to register and login a user with a specific role, returning auth headers."""
     # Register (first user becomes admin, subsequent registered by admin)
     client.post(
@@ -40,7 +42,9 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_create_farmer_success(client: TestClient) -> None:
     """Verify field officer can create a farmer when consent_given is True."""
-    headers = _create_user_and_login(client, "officer1@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     payload = {
         "name": "Ramesh Kumar",
@@ -61,7 +65,9 @@ def test_create_farmer_success(client: TestClient) -> None:
 
 def test_create_farmer_without_consent_fails(client: TestClient) -> None:
     """Verify creating a farmer with consent_given=False is rejected with 422."""
-    headers = _create_user_and_login(client, "officer2@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     payload = {
         "name": "Suresh Patel",
@@ -74,11 +80,18 @@ def test_create_farmer_without_consent_fails(client: TestClient) -> None:
 
 def test_get_farmer_by_id(client: TestClient) -> None:
     """Verify fetching an existing farmer by ID returns 200 OK."""
-    headers = _create_user_and_login(client, "officer3@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer3@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     create_res = client.post(
         "/api/v1/farmers",
-        json={"name": "Anita Devi", "district": "Patna", "state": "Bihar", "consent_given": True},
+        json={
+            "name": "Anita Devi",
+            "district": "Patna",
+            "state": "Bihar",
+            "consent_given": True,
+        },
         headers=headers,
     )
     farmer_id = create_res.json()["id"]
@@ -90,7 +103,9 @@ def test_get_farmer_by_id(client: TestClient) -> None:
 
 def test_get_farmer_not_found(client: TestClient) -> None:
     """Verify requesting a non-existent farmer ID returns 404 Not Found."""
-    headers = _create_user_and_login(client, "officer4@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer4@carbontrack.org", UserRole.FIELD_OFFICER
+    )
     response = client.get("/api/v1/farmers/99999", headers=headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["error"]["code"] == "NOT_FOUND"
@@ -98,14 +113,36 @@ def test_get_farmer_not_found(client: TestClient) -> None:
 
 def test_list_farmers_pagination_and_filters(client: TestClient) -> None:
     """Verify paginated listing, district/state filters, and name substring search."""
-    headers = _create_user_and_login(client, "officer5@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer5@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Seed 4 farmers
     farmers_data = [
-        {"name": "Aarav Sharma", "district": "Mysuru", "state": "Karnataka", "consent_given": True},
-        {"name": "Bhavna Patel", "district": "Mysuru", "state": "Karnataka", "consent_given": True},
-        {"name": "Chirag Joshi", "district": "Mandya", "state": "Karnataka", "consent_given": True},
-        {"name": "Deepak Verma", "district": "Pune", "state": "Maharashtra", "consent_given": True},
+        {
+            "name": "Aarav Sharma",
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
+        {
+            "name": "Bhavna Patel",
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
+        {
+            "name": "Chirag Joshi",
+            "district": "Mandya",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
+        {
+            "name": "Deepak Verma",
+            "district": "Pune",
+            "state": "Maharashtra",
+            "consent_given": True,
+        },
     ]
     for f in farmers_data:
         client.post("/api/v1/farmers", json=f, headers=headers)
@@ -133,7 +170,9 @@ def test_list_farmers_pagination_and_filters(client: TestClient) -> None:
 
 def test_update_farmer(client: TestClient) -> None:
     """Verify updating farmer phone and location attributes."""
-    headers = _create_user_and_login(client, "officer6@carbontrack.org", UserRole.FIELD_OFFICER)
+    headers = _create_user_and_login(
+        client, "officer6@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     create_res = client.post(
         "/api/v1/farmers",
@@ -156,7 +195,9 @@ def test_update_farmer(client: TestClient) -> None:
 
 def test_soft_delete_farmer(client: TestClient, db_session: Session) -> None:
     """Verify soft deletion marks is_deleted=True without purging the database row."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     create_res = client.post(
         "/api/v1/farmers",
@@ -185,9 +226,15 @@ def test_soft_delete_farmer(client: TestClient, db_session: Session) -> None:
 
 def test_farmer_role_permissions(client: TestClient) -> None:
     """Verify RBAC: Verifiers can read but cannot write; Officers cannot delete."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.rbac@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.rbac@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.rbac@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.rbac@carbontrack.org", UserRole.VERIFIER
+    )
 
     # 1. Officer can create farmer (201)
     create_res = client.post(
@@ -199,7 +246,10 @@ def test_farmer_role_permissions(client: TestClient) -> None:
     farmer_id = create_res.json()["id"]
 
     # 2. Verifier can read farmer (200)
-    assert client.get(f"/api/v1/farmers/{farmer_id}", headers=verifier_headers).status_code == status.HTTP_200_OK
+    assert (
+        client.get(f"/api/v1/farmers/{farmer_id}", headers=verifier_headers).status_code
+        == status.HTTP_200_OK
+    )
 
     # 3. Verifier CANNOT create or update farmer (403 Forbidden)
     create_forbidden = client.post(
@@ -210,7 +260,9 @@ def test_farmer_role_permissions(client: TestClient) -> None:
     assert create_forbidden.status_code == status.HTTP_403_FORBIDDEN
 
     # 4. Officer CANNOT delete farmer (403 Forbidden)
-    delete_forbidden = client.delete(f"/api/v1/farmers/{farmer_id}", headers=officer_headers)
+    delete_forbidden = client.delete(
+        f"/api/v1/farmers/{farmer_id}", headers=officer_headers
+    )
     assert delete_forbidden.status_code == status.HTTP_403_FORBIDDEN
 
     # 5. Unauthenticated request gets 401

@@ -2,6 +2,7 @@
 
 import io
 from unittest.mock import patch
+
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -11,7 +12,9 @@ from app.models.user import UserRole
 from app.services import job_service
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -41,7 +44,9 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_async_bulk_import_job_lifecycle(client: TestClient) -> None:
     """Verify asynchronous job creation (202), execution in background, and GET /jobs/{id} polling."""
-    officer_headers = _create_user_and_login(client, "officer.job1@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.job1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     csv_content = (
         "Name, Phone, Village, District, State, Consent\n"
@@ -50,7 +55,13 @@ def test_async_bulk_import_job_lifecycle(client: TestClient) -> None:
         "Gangamma, 9876543222, Dharwad, Dharwad, Karnataka, YES\n"
     )
 
-    files = {"file": ("async_farmers.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")}
+    files = {
+        "file": (
+            "async_farmers.csv",
+            io.BytesIO(csv_content.encode("utf-8")),
+            "text/csv",
+        )
+    }
 
     # 1. Dispatch asynchronous job -> expect HTTP 202 Accepted
     response = client.post(
@@ -95,7 +106,9 @@ def test_async_bulk_import_job_lifecycle(client: TestClient) -> None:
 
 def test_get_nonexistent_job_returns_404(client: TestClient) -> None:
     """Verify 404 Not Found when polling a non-existent job ID."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
     res = client.get("/api/v1/jobs/999999", headers=admin_headers)
     assert res.status_code == status.HTTP_404_NOT_FOUND
     assert "not found" in res.json()["error"]["message"].lower()
@@ -103,13 +116,23 @@ def test_get_nonexistent_job_returns_404(client: TestClient) -> None:
 
 def test_list_jobs_pagination_and_status_filter(client: TestClient) -> None:
     """Verify paginated listing and filtering by job status."""
-    officer_headers = _create_user_and_login(client, "officer.job2@carbontrack.org", UserRole.FIELD_OFFICER)
+    officer_headers = _create_user_and_login(
+        client, "officer.job2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     # Trigger two quick jobs
     csv_1 = "Name,Consent\nFarmerOne,true\n"
     csv_2 = "Name,Consent\nFarmerTwo,true\n"
-    client.post("/api/v1/farmers/bulk-import-async", files={"file": ("f1.csv", io.BytesIO(csv_1.encode()), "text/csv")}, headers=officer_headers)
-    client.post("/api/v1/farmers/bulk-import-async", files={"file": ("f2.csv", io.BytesIO(csv_2.encode()), "text/csv")}, headers=officer_headers)
+    client.post(
+        "/api/v1/farmers/bulk-import-async",
+        files={"file": ("f1.csv", io.BytesIO(csv_1.encode()), "text/csv")},
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/farmers/bulk-import-async",
+        files={"file": ("f2.csv", io.BytesIO(csv_2.encode()), "text/csv")},
+        headers=officer_headers,
+    )
 
     # List jobs
     list_res = client.get("/api/v1/jobs?page=1&page_size=10", headers=officer_headers)
@@ -128,8 +151,12 @@ def test_list_jobs_pagination_and_status_filter(client: TestClient) -> None:
 
 def test_jobs_role_permissions(client: TestClient) -> None:
     """Verify role permissions for async job submission and status polling."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    verifier_headers = _create_user_and_login(client, "verifier.job@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.job@carbontrack.org", UserRole.VERIFIER
+    )
 
     csv_data = "Name,Consent\nRoleFarmer,true\n"
     files = {"file": ("role_test.csv", io.BytesIO(csv_data.encode()), "text/csv")}
@@ -139,11 +166,15 @@ def test_jobs_role_permissions(client: TestClient) -> None:
     assert unauth.status_code == status.HTTP_401_UNAUTHORIZED
 
     # 2. Verifier cannot submit async import -> 403 Forbidden
-    verif_submit = client.post("/api/v1/farmers/bulk-import-async", files=files, headers=verifier_headers)
+    verif_submit = client.post(
+        "/api/v1/farmers/bulk-import-async", files=files, headers=verifier_headers
+    )
     assert verif_submit.status_code == status.HTTP_403_FORBIDDEN
 
     # 3. Admin submits -> 202 Accepted
-    adm_submit = client.post("/api/v1/farmers/bulk-import-async", files=files, headers=admin_headers)
+    adm_submit = client.post(
+        "/api/v1/farmers/bulk-import-async", files=files, headers=admin_headers
+    )
     assert adm_submit.status_code == status.HTTP_202_ACCEPTED
     job_id = adm_submit.json()["id"]
 
@@ -154,14 +185,19 @@ def test_jobs_role_permissions(client: TestClient) -> None:
 
 def test_job_worker_failure_handling(client: TestClient, db_session: Session) -> None:
     """Verify that worker runtime exceptions set status to FAILED and capture error message."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # Create job
     job = job_service.create_job(db_session, job_type="failing_task")
     job_id = job.id
 
     # Mock the bulk import to raise an unhandled exception
-    with patch("app.services.job_service.bulk_import_farmers_from_csv", side_effect=RuntimeError("Simulated worker disk failure")):
+    with patch(
+        "app.services.job_service.bulk_import_farmers_from_csv",
+        side_effect=RuntimeError("Simulated worker disk failure"),
+    ):
         job_service.process_farmer_bulk_import_job(job_id, b"dummy content")
 
     db_session.expire_all()
@@ -178,5 +214,6 @@ def test_job_worker_failure_handling(client: TestClient, db_session: Session) ->
 def test_job_worker_nonexistent_job_handles_gracefully() -> None:
     """Verify that worker handles a nonexistent job ID without crashing."""
     # When job ID 999999 is processed, worker logs error and returns cleanly
-    job_service.process_farmer_bulk_import_job(job_id=999999, file_content=b"dummy content")
-
+    job_service.process_farmer_bulk_import_job(
+        job_id=999999, file_content=b"dummy content"
+    )

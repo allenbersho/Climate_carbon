@@ -3,16 +3,18 @@
 and per-project analytics.
 """
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.user import UserRole
 from app.services.methodology_service import seed_default_methodologies
 
 
-def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> dict[str, str]:
+def _create_user_and_login(
+    client: TestClient, email: str, role: UserRole
+) -> dict[str, str]:
     """Helper to bootstrap an admin, register an actor with a specific role, and return auth headers."""
     client.post(
         "/api/v1/auth/register",
@@ -42,7 +44,9 @@ def _create_user_and_login(client: TestClient, email: str, role: UserRole) -> di
 
 def test_empty_analytics_summary_returns_zeros(client: TestClient) -> None:
     """Verify that an empty database returns zeros without crashing SQL aggregations."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     res = client.get("/api/v1/analytics/summary", headers=admin_headers)
     assert res.status_code == status.HTTP_200_OK
@@ -54,24 +58,40 @@ def test_empty_analytics_summary_returns_zeros(client: TestClient) -> None:
     assert data["by_district"] == []
 
 
-def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_session: Session) -> None:
+def test_portfolio_and_project_analytics_sql_aggregation(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify SQL GROUP BY aggregations across multiple districts, projects, and farmers."""
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.ana1@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.ana1@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.ana1@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.ana1@carbontrack.org", UserRole.VERIFIER
+    )
 
     # 1. Create Projects
     proj1 = client.post(
         "/api/v1/projects",
-        json={"name": "Mandya Regen Ag", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Mandya Regen Ag",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()
     proj1_id = proj1["id"]
 
     proj2 = client.post(
         "/api/v1/projects",
-        json={"name": "Uttara Afforestation", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Uttara Afforestation",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()
     proj2_id = proj2["id"]
@@ -79,7 +99,12 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     # 2. Setup Farmer 1 in Mandya (10 acres, Regen Ag)
     f1_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Boregowda", "district": "Mandya", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Boregowda",
+            "district": "Mandya",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
     p1_id = client.post(
@@ -89,7 +114,12 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     ).json()["id"]
     e1_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": proj1_id, "parcel_id": p1_id, "farmer_id": f1_id, "status": "active"},
+        json={
+            "project_id": proj1_id,
+            "parcel_id": p1_id,
+            "farmer_id": f1_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -116,12 +146,21 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
         },
         headers=officer_headers,
     )
-    client.post("/api/v1/carbon/estimate", json={"enrollment_id": e1_id}, headers=verifier_headers)
+    client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": e1_id},
+        headers=verifier_headers,
+    )
 
     # 3. Setup Farmer 2 in Mandya (5 acres, Regen Ag, no estimate yet)
     f2_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Thimmegowda", "district": "Mandya", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Thimmegowda",
+            "district": "Mandya",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
     p2_id = client.post(
@@ -131,14 +170,24 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     ).json()["id"]
     client.post(
         "/api/v1/enrollments",
-        json={"project_id": proj1_id, "parcel_id": p2_id, "farmer_id": f2_id, "status": "active"},
+        json={
+            "project_id": proj1_id,
+            "parcel_id": p2_id,
+            "farmer_id": f2_id,
+            "status": "active",
+        },
         headers=officer_headers,
     )
 
     # 4. Setup Farmer 3 in Uttara Kannada (8 acres, Afforestation)
     f3_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Hegde", "district": "Uttara Kannada", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Hegde",
+            "district": "Uttara Kannada",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
     p3_id = client.post(
@@ -148,7 +197,12 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     ).json()["id"]
     e3_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": proj2_id, "parcel_id": p3_id, "farmer_id": f3_id, "status": "active"},
+        json={
+            "project_id": proj2_id,
+            "parcel_id": p3_id,
+            "farmer_id": f3_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -175,7 +229,11 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
         },
         headers=officer_headers,
     )
-    client.post("/api/v1/carbon/estimate", json={"enrollment_id": e3_id}, headers=verifier_headers)
+    client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": e3_id},
+        headers=verifier_headers,
+    )
 
     # -------------------------------------------------------------
     # 5. Verify Portfolio-Wide Analytics (GET /api/v1/analytics/summary)
@@ -187,7 +245,9 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     assert summary["total_farmers"] == 3
     assert summary["total_acres"] == pytest.approx(23.0, abs=1e-4)  # 10 + 5 + 8
     expected_total_credits = 133.191468 + 32.95905
-    assert summary["total_net_credits"] == pytest.approx(expected_total_credits, abs=1e-3)
+    assert summary["total_net_credits"] == pytest.approx(
+        expected_total_credits, abs=1e-3
+    )
 
     # Verify District Breakdown (GROUP BY district, state)
     districts = {d["district"]: d for d in summary["by_district"]}
@@ -207,7 +267,9 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     # -------------------------------------------------------------
     # 6. Verify Per-Project Analytics (GET /api/v1/analytics/projects/{id})
     # -------------------------------------------------------------
-    p1_res = client.get(f"/api/v1/analytics/projects/{proj1_id}", headers=officer_headers)
+    p1_res = client.get(
+        f"/api/v1/analytics/projects/{proj1_id}", headers=officer_headers
+    )
     assert p1_res.status_code == status.HTTP_200_OK
     p1_data = p1_res.json()
     assert p1_data["project_id"] == proj1_id
@@ -219,7 +281,9 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
     assert len(p1_data["by_district"]) == 1
     assert p1_data["by_district"][0]["district"] == "Mandya"
 
-    p2_res = client.get(f"/api/v1/analytics/projects/{proj2_id}", headers=officer_headers)
+    p2_res = client.get(
+        f"/api/v1/analytics/projects/{proj2_id}", headers=officer_headers
+    )
     assert p2_res.status_code == status.HTTP_200_OK
     p2_data = p2_res.json()
     assert p2_data["total_farmers"] == 1
@@ -229,18 +293,31 @@ def test_portfolio_and_project_analytics_sql_aggregation(client: TestClient, db_
 
 def test_soft_deleted_farmers_excluded_from_analytics(client: TestClient) -> None:
     """Verify that soft-deleted farmers are excluded from analytics aggregates."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.ana2@carbontrack.org", UserRole.FIELD_OFFICER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.ana2@carbontrack.org", UserRole.FIELD_OFFICER
+    )
 
     proj_id = client.post(
         "/api/v1/projects",
-        json={"name": "Soft Delete Project", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Soft Delete Project",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()["id"]
 
     farmer_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Gowdappa", "district": "Mysuru", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Gowdappa",
+            "district": "Mysuru",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -252,7 +329,12 @@ def test_soft_deleted_farmers_excluded_from_analytics(client: TestClient) -> Non
 
     client.post(
         "/api/v1/enrollments",
-        json={"project_id": proj_id, "parcel_id": parcel_id, "farmer_id": farmer_id, "status": "active"},
+        json={
+            "project_id": proj_id,
+            "parcel_id": parcel_id,
+            "farmer_id": farmer_id,
+            "status": "active",
+        },
         headers=officer_headers,
     )
 
@@ -264,21 +346,27 @@ def test_soft_deleted_farmers_excluded_from_analytics(client: TestClient) -> Non
     client.delete(f"/api/v1/farmers/{farmer_id}", headers=admin_headers)
 
     # 3. Post-delete: farmer and acreage must be excluded
-    post_res = client.get(f"/api/v1/analytics/projects/{proj_id}", headers=officer_headers).json()
+    post_res = client.get(
+        f"/api/v1/analytics/projects/{proj_id}", headers=officer_headers
+    ).json()
     assert post_res["total_farmers"] == 0
     assert post_res["total_acres"] == 0.0
 
 
 def test_analytics_project_not_found_404(client: TestClient) -> None:
     """Verify 404 Not Found when querying non-existent project ID."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
     res = client.get("/api/v1/analytics/projects/999999", headers=admin_headers)
     assert res.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_analytics_role_permissions(client: TestClient) -> None:
     """Verify unauthenticated requests return 401, authenticated roles return 200."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
     # 1. Unauthenticated -> 401
     unauth = client.get("/api/v1/analytics/summary")
@@ -289,27 +377,43 @@ def test_analytics_role_permissions(client: TestClient) -> None:
     assert auth_res.status_code == status.HTTP_200_OK
 
 
-def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db_session: Session) -> None:
+def test_carbon_timeseries_window_function_and_csv_export(
+    client: TestClient, db_session: Session
+) -> None:
     """Verify SQL window function running cumulative sums and CSV audit export."""
     import csv
     import io
 
     seed_default_methodologies(db_session)
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
-    officer_headers = _create_user_and_login(client, "officer.ts@carbontrack.org", UserRole.FIELD_OFFICER)
-    verifier_headers = _create_user_and_login(client, "verifier.ts@carbontrack.org", UserRole.VERIFIER)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
+    officer_headers = _create_user_and_login(
+        client, "officer.ts@carbontrack.org", UserRole.FIELD_OFFICER
+    )
+    verifier_headers = _create_user_and_login(
+        client, "verifier.ts@carbontrack.org", UserRole.VERIFIER
+    )
 
     # 1. Create two projects
     p1 = client.post(
         "/api/v1/projects",
-        json={"name": "Tumkur Agroforestry", "type": "afforestation", "start_date": "2025-01-01"},
+        json={
+            "name": "Tumkur Agroforestry",
+            "type": "afforestation",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()
     p1_id = p1["id"]
 
     p2 = client.post(
         "/api/v1/projects",
-        json={"name": "Hassan Soil Initiative", "type": "regen_ag", "start_date": "2025-01-01"},
+        json={
+            "name": "Hassan Soil Initiative",
+            "type": "regen_ag",
+            "start_date": "2025-01-01",
+        },
         headers=admin_headers,
     ).json()
     p2_id = p2["id"]
@@ -317,7 +421,12 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
     # 2. Setup Farmer and 2 Enrollments in Project 1
     f1_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Ramegowda", "district": "Tumkur", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Ramegowda",
+            "district": "Tumkur",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -335,13 +444,23 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
 
     e1_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": p1_id, "parcel_id": par1_id, "farmer_id": f1_id, "status": "active"},
+        json={
+            "project_id": p1_id,
+            "parcel_id": par1_id,
+            "farmer_id": f1_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
     e2_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": p1_id, "parcel_id": par2_id, "farmer_id": f1_id, "status": "active"},
+        json={
+            "project_id": p1_id,
+            "parcel_id": par2_id,
+            "farmer_id": f1_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -368,7 +487,11 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
         },
         headers=officer_headers,
     )
-    est1 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e1_id}, headers=verifier_headers).json()
+    est1 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": e1_id},
+        headers=verifier_headers,
+    ).json()
 
     # Observations & Estimate for E2 (Afforestation)
     client.post(
@@ -393,12 +516,21 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
         },
         headers=officer_headers,
     )
-    est2 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e2_id}, headers=verifier_headers).json()
+    est2 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": e2_id},
+        headers=verifier_headers,
+    ).json()
 
     # 3. Setup Farmer and 1 Enrollment in Project 2 (Soil Carbon)
     f2_id = client.post(
         "/api/v1/farmers",
-        json={"name": "Ningamma", "district": "Hassan", "state": "Karnataka", "consent_given": True},
+        json={
+            "name": "Ningamma",
+            "district": "Hassan",
+            "state": "Karnataka",
+            "consent_given": True,
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -410,7 +542,12 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
 
     e3_id = client.post(
         "/api/v1/enrollments",
-        json={"project_id": p2_id, "parcel_id": par3_id, "farmer_id": f2_id, "status": "active"},
+        json={
+            "project_id": p2_id,
+            "parcel_id": par3_id,
+            "farmer_id": f2_id,
+            "status": "active",
+        },
         headers=officer_headers,
     ).json()["id"]
 
@@ -436,7 +573,11 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
         },
         headers=officer_headers,
     )
-    est3 = client.post("/api/v1/carbon/estimate", json={"enrollment_id": e3_id}, headers=verifier_headers).json()
+    est3 = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": e3_id},
+        headers=verifier_headers,
+    ).json()
 
     # -------------------------------------------------------------
     # 4. Test Time Series Window Function (Portfolio-Wide)
@@ -459,7 +600,9 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
     # -------------------------------------------------------------
     # 5. Test Time Series Scoped to Project 1
     # -------------------------------------------------------------
-    p1_ts_res = client.get(f"/api/v1/analytics/timeseries?project_id={p1_id}", headers=officer_headers)
+    p1_ts_res = client.get(
+        f"/api/v1/analytics/timeseries?project_id={p1_id}", headers=officer_headers
+    )
     assert p1_ts_res.status_code == status.HTTP_200_OK
     p1_ts = p1_ts_res.json()
     assert p1_ts["project_id"] == p1_id
@@ -473,7 +616,10 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
     csv_res = client.get("/api/v1/analytics/export/csv", headers=verifier_headers)
     assert csv_res.status_code == status.HTTP_200_OK
     assert "text/csv" in csv_res.headers["content-type"]
-    assert 'attachment; filename="carbon_estimates_portfolio.csv"' in csv_res.headers["content-disposition"]
+    assert (
+        'attachment; filename="carbon_estimates_portfolio.csv"'
+        in csv_res.headers["content-disposition"]
+    )
 
     reader = list(csv.reader(io.StringIO(csv_res.text)))
     assert len(reader) == 4  # Header + 3 data rows
@@ -486,9 +632,14 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
     # -------------------------------------------------------------
     # 7. Test CSV Export Scoped to Project 2
     # -------------------------------------------------------------
-    p2_csv_res = client.get(f"/api/v1/analytics/export/csv?project_id={p2_id}", headers=verifier_headers)
+    p2_csv_res = client.get(
+        f"/api/v1/analytics/export/csv?project_id={p2_id}", headers=verifier_headers
+    )
     assert p2_csv_res.status_code == status.HTTP_200_OK
-    assert f'attachment; filename="carbon_estimates_project_{p2_id}.csv"' in p2_csv_res.headers["content-disposition"]
+    assert (
+        f'attachment; filename="carbon_estimates_project_{p2_id}.csv"'
+        in p2_csv_res.headers["content-disposition"]
+    )
     p2_reader = list(csv.reader(io.StringIO(p2_csv_res.text)))
     assert len(p2_reader) == 2  # Header + 1 row
     assert p2_reader[1][2] == str(p2_id)  # Project ID column
@@ -496,10 +647,16 @@ def test_carbon_timeseries_window_function_and_csv_export(client: TestClient, db
 
 def test_timeseries_and_csv_project_not_found_404(client: TestClient) -> None:
     """Verify 404 response when querying timeseries or CSV for non-existent project."""
-    admin_headers = _create_user_and_login(client, "super.admin@carbontrack.org", UserRole.ADMIN)
+    admin_headers = _create_user_and_login(
+        client, "super.admin@carbontrack.org", UserRole.ADMIN
+    )
 
-    ts_res = client.get("/api/v1/analytics/timeseries?project_id=999999", headers=admin_headers)
+    ts_res = client.get(
+        "/api/v1/analytics/timeseries?project_id=999999", headers=admin_headers
+    )
     assert ts_res.status_code == status.HTTP_404_NOT_FOUND
 
-    csv_res = client.get("/api/v1/analytics/export/csv?project_id=999999", headers=admin_headers)
+    csv_res = client.get(
+        "/api/v1/analytics/export/csv?project_id=999999", headers=admin_headers
+    )
     assert csv_res.status_code == status.HTTP_404_NOT_FOUND

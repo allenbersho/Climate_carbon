@@ -1,6 +1,7 @@
 """Tests for health check and database session functionality."""
 
 from unittest.mock import MagicMock
+
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import text
