@@ -178,3 +178,36 @@ def test_bulk_import_role_permissions(client: TestClient) -> None:
     adm = client.post("/api/v1/farmers/bulk-import", files=files, headers=admin_headers)
     assert adm.status_code == status.HTTP_200_OK
     assert adm.json()["imported_count"] == 1
+
+
+def test_bulk_import_edge_cases_and_parsers(db_session) -> None:
+    """Verify internal CSV parsing edge cases, blank lines, Latin-1 encodings, and boolean parsing."""
+    from app.services.farmer_service import _parse_boolean_consent, bulk_import_farmers_from_csv, list_farmers
+
+    # 1. Test _parse_boolean_consent
+    assert _parse_boolean_consent(None) is False
+    assert _parse_boolean_consent(True) is True
+    assert _parse_boolean_consent(False) is False
+    assert _parse_boolean_consent("yes") is True
+    assert _parse_boolean_consent("0") is False
+
+    # 2. Test empty string or empty bytes
+    res_empty = bulk_import_farmers_from_csv(db_session, file_content="")
+    assert res_empty.total_rows == 0
+    assert res_empty.imported_count == 0
+
+    # 3. Test empty header only
+    res_hdr_only = bulk_import_farmers_from_csv(db_session, file_content="Name,Consent\n")
+    assert res_hdr_only.total_rows == 0
+
+    # 4. Test Latin-1 encoding fallback with row containing fewer columns than header
+    latin1_bytes = "Name,Phone,Consent\nKäthe\n".encode("latin-1")
+    res_latin1 = bulk_import_farmers_from_csv(db_session, file_content=latin1_bytes)
+    assert res_latin1.total_rows == 1
+    assert res_latin1.failed_count == 1
+
+    # 5. Test list_farmers with state filter
+    farmers, total = list_farmers(db_session, state="Karnataka")
+    assert isinstance(farmers, list)
+    assert total >= 0
+

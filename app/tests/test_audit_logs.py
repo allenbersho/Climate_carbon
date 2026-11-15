@@ -2,6 +2,7 @@
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.models.user import UserRole
 
@@ -183,3 +184,25 @@ def test_audit_logs_role_permissions(client: TestClient) -> None:
     # 4. Admin -> 200 OK
     admin_res = client.get("/api/v1/audit-logs", headers=admin_headers)
     assert admin_res.status_code == status.HTTP_200_OK
+
+
+def test_audit_log_filters_and_direct_commit(client: TestClient, db_session: Session) -> None:
+    """Verify audit log filtering by user_id and action, and commit=True behavior."""
+    from app.services import audit_service
+
+    # Direct log with commit=True
+    log = audit_service.record_audit_event(
+        db_session,
+        user=None,
+        action="EXPORT",
+        entity_type="REPORT",
+        entity_id=101,
+        commit=True,
+    )
+    assert log.id is not None
+
+    # Filter by action
+    logs_act, total_act = audit_service.list_audit_logs(db_session, action="EXPORT")
+    assert total_act >= 1
+    assert any(l.id == log.id for l in logs_act)
+

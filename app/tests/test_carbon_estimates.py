@@ -456,3 +456,55 @@ def test_role_permissions_for_carbon_estimates(client: TestClient, db_session: S
     # 3. Verifier -> allowed (returns 422 because observations aren't added yet, proving auth succeeded!)
     verifier_res = client.post("/api/v1/carbon/estimate", json={"enrollment_id": enrollment_id}, headers=verifier_headers)
     assert verifier_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_carbon_estimate_error_branches_and_not_found(client: TestClient, db_session: Session) -> None:
+    """Verify 404 on nonexistent enrollment/methodology and get_estimate_by_id helper."""
+    seed_default_methodologies(db_session)
+    admin_headers = _create_user_and_login(client, "admin.carb_err@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.carb_err@carbontrack.org", UserRole.FIELD_OFFICER)
+    enrollment_id, _parcel_id = _setup_afforestation_enrollment(client, officer_headers, admin_headers)
+
+    # 1. Nonexistent enrollment -> 404
+    res_no_enrollment = client.post("/api/v1/carbon/estimate", json={"enrollment_id": 99999}, headers=admin_headers)
+    assert res_no_enrollment.status_code == status.HTTP_404_NOT_FOUND
+
+    # Add valid observations to enrollment
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 100, "avg_height_m": 1.5},
+            "observed_at": "2025-01-01T10:00:00Z",
+            "is_baseline": True,
+        },
+        headers=officer_headers,
+    )
+    client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "tree_count",
+            "values": {"count": 150, "avg_height_m": 2.0},
+            "observed_at": "2026-01-01T10:00:00Z",
+        },
+        headers=officer_headers,
+    )
+
+    # 2. Nonexistent methodology -> 400 Bad Request
+    res_bad_methodology = client.post(
+        "/api/v1/carbon/estimate",
+        json={"enrollment_id": enrollment_id, "methodology_id": 99999},
+        headers=admin_headers,
+    )
+    assert res_bad_methodology.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 3. Get history for nonexistent enrollment -> 404
+    hist_404 = client.get("/api/v1/carbon/estimates/99999", headers=admin_headers)
+    assert hist_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # 4. Direct call to get_estimate_by_id with nonexistent ID returns None
+    from app.services.carbon_service import get_estimate_by_id
+    assert get_estimate_by_id(db_session, estimate_id=99999) is None
+

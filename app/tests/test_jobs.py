@@ -173,3 +173,10 @@ def test_job_worker_failure_handling(client: TestClient, db_session: Session) ->
     assert failed_job["status"] == "failed"
     assert "Simulated worker disk failure" in failed_job["error_message"]
     assert failed_job["completed_at"] is not None
+
+
+def test_job_worker_nonexistent_job_handles_gracefully() -> None:
+    """Verify that worker handles a nonexistent job ID without crashing."""
+    # When job ID 999999 is processed, worker logs error and returns cleanly
+    job_service.process_farmer_bulk_import_job(job_id=999999, file_content=b"dummy content")
+

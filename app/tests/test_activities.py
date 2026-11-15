@@ -319,3 +319,69 @@ def test_activity_role_permissions(client: TestClient) -> None:
 
     # 4. Unauthenticated gets 401
     assert client.get("/api/v1/activities").status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_update_activity_lifecycle_and_error_branches(client: TestClient) -> None:
+    """Verify PATCH /api/v1/activities/{id} updates data, rejects future dates (422), and handles 404s."""
+    admin_headers = _create_user_and_login(client, "admin.act_upd@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.act_upd@carbontrack.org", UserRole.FIELD_OFFICER)
+    enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
+
+    # 1. Create activity
+    create_res = client.post(
+        "/api/v1/activities",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "mulching",
+            "activity_date": "2026-01-10",
+            "details": {"mulch_material": "straw"},
+        },
+        headers=officer_headers,
+    )
+    assert create_res.status_code == status.HTTP_201_CREATED
+    act_id = create_res.json()["id"]
+
+    # 2. Successfully patch details and date
+    patch_res = client.patch(
+        f"/api/v1/activities/{act_id}",
+        json={
+            "activity_date": "2026-01-12",
+            "details": {"mulch_material": "woodchips", "layer_depth_cm": 5},
+        },
+        headers=officer_headers,
+    )
+    assert patch_res.status_code == status.HTTP_200_OK
+    data = patch_res.json()
+    assert data["activity_date"] == "2026-01-12"
+    assert data["details"]["mulch_material"] == "woodchips"
+    assert data["details"]["layer_depth_cm"] == 5
+
+    # 3. Patching with future date returns 422
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    fut_res = client.patch(
+        f"/api/v1/activities/{act_id}",
+        json={"activity_date": tomorrow},
+        headers=officer_headers,
+    )
+    assert fut_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # 4. Patching nonexistent activity returns 404
+    not_found_res = client.patch(
+        "/api/v1/activities/99999",
+        json={"details": {"notes": "ghost"}},
+        headers=officer_headers,
+    )
+    assert not_found_res.status_code == status.HTTP_404_NOT_FOUND
+
+    # 5. Getting nonexistent activity returns 404
+    get_not_found = client.get("/api/v1/activities/99999", headers=officer_headers)
+    assert get_not_found.status_code == status.HTTP_404_NOT_FOUND
+
+    # 6. Test nested enrollment activities with to_date filter
+    nested_res = client.get(
+        f"/api/v1/enrollments/{enrollment_id}/activities?to_date=2026-01-15",
+        headers=officer_headers,
+    )
+    assert nested_res.status_code == status.HTTP_200_OK
+    assert len(nested_res.json()) >= 1
+

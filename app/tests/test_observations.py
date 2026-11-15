@@ -403,3 +403,66 @@ def test_observation_role_permissions(client: TestClient) -> None:
 
     # 5. Unauthenticated gets 401
     assert client.get("/api/v1/observations").status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_observation_error_branches_and_edge_cases(client: TestClient) -> None:
+    """Verify error responses across observation routes (404s, 422s)."""
+    admin_headers = _create_user_and_login(client, "admin.obs_err@carbontrack.org", UserRole.ADMIN)
+    officer_headers = _create_user_and_login(client, "officer.obs_err@carbontrack.org", UserRole.FIELD_OFFICER)
+    enrollment_id = _setup_enrollment(client, officer_headers, admin_headers)
+
+    # 1. Nonexistent enrollment on create observation -> 404
+    nonexistent_res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": 99999,
+            "type": "tree_count",
+            "values": {"count": 50, "avg_height_m": 1.5},
+            "observed_at": "2026-01-15T10:00:00Z",
+        },
+        headers=officer_headers,
+    )
+    assert nonexistent_res.status_code == status.HTTP_404_NOT_FOUND
+
+    # 2. Get nonexistent observation -> 404
+    get_404 = client.get("/api/v1/observations/99999", headers=officer_headers)
+    assert get_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # 3. Supersede nonexistent observation -> 404
+    supersede_404 = client.post(
+        "/api/v1/observations/99999/supersede",
+        json={"values": {"count": 60}, "observed_at": "2026-01-16T10:00:00Z"},
+        headers=officer_headers,
+    )
+    assert supersede_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # 4. Validate nonexistent observation -> 404
+    validate_404 = client.post("/api/v1/observations/99999/validate", headers=officer_headers)
+    assert validate_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # 5. Get issues for nonexistent observation -> 404
+    issues_404 = client.get("/api/v1/observations/99999/issues", headers=officer_headers)
+    assert issues_404.status_code == status.HTTP_404_NOT_FOUND
+
+    # 6. Create valid observation, then supersede with invalid observation values -> 422
+    valid_res = client.post(
+        "/api/v1/observations",
+        json={
+            "enrollment_id": enrollment_id,
+            "type": "soil",
+            "values": {"soc_percent": 1.2, "bulk_density": 1.1, "depth_cm": 30.0},
+            "observed_at": "2026-01-15T10:00:00Z",
+        },
+        headers=officer_headers,
+    )
+    assert valid_res.status_code == status.HTTP_201_CREATED
+    obs_id = valid_res.json()["id"]
+
+    # Supersede with negative count/soc
+    bad_supersede = client.post(
+        f"/api/v1/observations/{obs_id}/supersede",
+        json={"values": {"soc_percent": -5.0, "bulk_density": 1.1, "depth_cm": 30.0}, "observed_at": "2026-01-16T10:00:00Z"},
+        headers=officer_headers,
+    )
+    assert bad_supersede.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+

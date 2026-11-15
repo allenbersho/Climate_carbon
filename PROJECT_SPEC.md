@@ -131,7 +131,7 @@ carbontrack/
 - [x] Phase 6: Carbon engine
 - [x] Phase 7: Analytics and reporting
 - [x] Phase 8: Bulk import and background jobs
-- [ ] Phase 9: Audit, security, hardening
+- [x] Phase 9: Audit, security, hardening
 - [ ] Phase 10: Testing, CI, deployment
 - [ ] Upgrades: PostGIS, verification workflow, anomaly detection
 

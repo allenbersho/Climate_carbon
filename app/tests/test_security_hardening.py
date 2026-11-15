@@ -163,3 +163,107 @@ def test_max_upload_size_limit_enforcement(client: TestClient) -> None:
         assert res.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         assert res.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
         assert "upload limit" in res.json()["error"]["message"].lower()
+
+
+def test_dependency_injection_and_token_edge_cases(client: TestClient, db_session) -> None:
+    """Verify get_db generator, inactive user token rejection, and get_current_user_optional edge cases."""
+    from app.api.deps import get_current_user, get_current_user_optional, get_db
+    from app.core.security import create_access_token
+    from app.models.user import User
+
+    # 1. Direct get_db generator
+    gen = get_db()
+    session = next(gen)
+    assert session is not None
+    try:
+        next(gen)
+    except StopIteration:
+        pass
+
+    # 2. get_current_user_optional with malformed token
+    assert get_current_user_optional(token=None, db=db_session) is None
+    assert get_current_user_optional(token="invalid.jwt.token", db=db_session) is None
+
+    # 3. get_current_user with token missing sub or nonexistent user
+    token_bad_sub = create_access_token(subject="999999", role=UserRole.FIELD_OFFICER.value)
+    from fastapi import HTTPException
+    import pytest
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(token=token_bad_sub, db=db_session)
+    assert exc_info.value.status_code == 401
+
+    # 4. Inactive user token -> 403 Forbidden
+    inactive_user = User(email="inactive@example.com", hashed_password="x", role=UserRole.FIELD_OFFICER, is_active=False)
+    db_session.add(inactive_user)
+    db_session.commit()
+    db_session.refresh(inactive_user)
+
+    inactive_token = create_access_token(subject=str(inactive_user.id), role=UserRole.FIELD_OFFICER.value)
+    with pytest.raises(HTTPException) as exc_403:
+        get_current_user(token=inactive_token, db=db_session)
+    assert exc_403.value.status_code == 403
+    assert "inactive" in exc_403.value.detail.lower()
+
+
+def test_logging_extra_data_and_setup_modes() -> None:
+    """Verify JSONFormatter extra_data support and setup_logging text/re-exec modes."""
+    from app.core.logging import JSONFormatter, setup_logging
+
+    # 1. JSONFormatter with extra_data and exception info
+    formatter = JSONFormatter()
+    try:
+        raise ValueError("Simulated log exception")
+    except ValueError:
+        import sys
+        exc_info = sys.exc_info()
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname="test.py",
+        lineno=10,
+        msg="Error with extra",
+        args=(),
+        exc_info=exc_info,
+    )
+    record.extra_data = {"tenant_id": 42, "request_id": "abc-123"}
+    formatted = formatter.format(record)
+    parsed = json.loads(formatted)
+    assert parsed["tenant_id"] == 42
+    assert parsed["request_id"] == "abc-123"
+    assert "exception" in parsed
+
+    # 2. setup_logging modes
+    setup_logging(log_level="DEBUG", log_format="text")
+    setup_logging(log_level="INFO", log_format="json")
+
+
+def test_model_repr_methods(db_session) -> None:
+    """Verify string representations (__repr__) across domain models."""
+    from datetime import date, datetime, timezone
+    from app.models.activity import Activity, ActivityType
+    from app.models.audit_log import AuditLog
+    from app.models.carbon_estimate import CarbonEstimate, EstimateStatus
+    from app.models.enrollment import Enrollment, EnrollmentStatus
+    from app.models.farmer import Farmer
+    from app.models.job import Job, JobStatus
+    from app.models.land_parcel import LandParcel
+    from app.models.methodology import Methodology
+    from app.models.observation import Observation, ObservationType
+    from app.models.project import Project, ProjectStatus, ProjectType
+    from app.models.user import User
+    from app.models.validation_issue import ValidationIssue, ValidationSeverity
+
+    assert "Activity" in repr(Activity(id=1, enrollment_id=1, type=ActivityType.PLANTING, activity_date=date(2026, 1, 1)))
+    assert "AuditLog" in repr(AuditLog(id=1, action="CREATE", entity_type="project", entity_id=1, user_email="admin@test.com"))
+    assert "CarbonEstimate" in repr(CarbonEstimate(id=1, enrollment_id=1, methodology_version="v1", net_credits=8.5, status=EstimateStatus.DRAFT))
+    assert "Enrollment" in repr(Enrollment(id=1, project_id=1, parcel_id=1, status=EnrollmentStatus.ACTIVE))
+    assert "Farmer" in repr(Farmer(id=1, name="Ramesh", state="Karnataka"))
+    assert "Job" in repr(Job(id=1, job_type="bulk_import", status=JobStatus.COMPLETED))
+    assert "LandParcel" in repr(LandParcel(id=1, farmer_id=1, area_acres=5.0))
+    assert "Methodology" in repr(Methodology(id=1, name="Afforestation", version="v1"))
+    assert "Observation" in repr(Observation(id=1, type=ObservationType.TREE_COUNT, observed_at=datetime.now(timezone.utc), is_baseline=True))
+    assert "Project" in repr(Project(id=1, name="Project Alpha", type=ProjectType.AFFORESTATION, status=ProjectStatus.ACTIVE))
+    assert "User" in repr(User(id=1, email="test@test.com", role=UserRole.ADMIN, is_active=True))
+    assert "ValidationIssue" in repr(ValidationIssue(id=1, observation_id=1, rule="rule_soc_range", severity=ValidationSeverity.ERROR))
+
