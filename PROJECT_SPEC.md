@@ -132,7 +132,7 @@ carbontrack/
 - [x] Phase 7: Analytics and reporting
 - [x] Phase 8: Bulk import and background jobs
 - [x] Phase 9: Audit, security, hardening
-- [ ] Phase 10: Testing, CI, deployment
+- [x] Phase 10: Testing, CI, deployment
 - [ ] Upgrades: PostGIS, verification workflow, anomaly detection
 
 ## 10. Out of scope (for now)

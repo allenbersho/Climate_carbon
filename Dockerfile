@@ -14,10 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install dependencies using pyproject.toml
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .
+    pip install --no-cache-dir . alembic
 
-# Copy application code
+# Copy application, migrations, configuration, and utility scripts
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY scripts ./scripts
 
 EXPOSE 8000
 
